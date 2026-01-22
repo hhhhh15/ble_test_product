@@ -1,15 +1,39 @@
+# Built artifacts
 *.iml
+*.ipr
+*.iws
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+/.idea/
 /build
-/captures
 .externalNativeBuild
 .cxx
+
+# Logs and temporary files
+*.log
+*.temp
+*.tmp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Android Studio / IntelliJ files
+captures/
+navigation/
+assetWizardSettings.xml
+
+# Signing files
+*.jks
+*.keystore
+*.p12
+google-services.json
+
+# Local properties
 local.properties
+
+# Lint
+lint/
+build/
+outputs/
+reports/

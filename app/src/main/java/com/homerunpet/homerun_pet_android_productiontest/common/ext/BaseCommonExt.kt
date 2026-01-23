@@ -5,6 +5,7 @@ import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
@@ -282,19 +283,36 @@ fun BodyRequest.gson(vararg body: Pair<String, Any?>) {
 }
 
 /**
+ * 开启全屏沉浸式体验（Edge-to-Edge）
+ */
+fun Activity.enableEdgeToEdge() {
+    WindowCompat.setDecorFitsSystemWindows(window, false)
+}
+
+/**
+ * 设置状态栏文字图标颜色
+ * @param isDark true 为黑色，false 为白色
+ */
+fun Activity.setStatusBarDarkFont(isDark: Boolean) {
+    val controller = WindowCompat.getInsetsController(window, window.decorView)
+    controller.isAppearanceLightStatusBars = isDark
+}
+
+/**
  * 为View设置安全距离导航栏
  */
-fun View.hasSafeDistanceNavigationBars(activity: Activity) {
+fun View.hasSafeDistanceNavigationBars() {
     ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
         val navigationBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
         val isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
         val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
 
-        if (isImeVisible) {
-            v.setPadding(navigationBars.left, navigationBars.top, navigationBars.right, imeHeight)
-        } else {
-            v.setPadding(navigationBars.left, navigationBars.top, navigationBars.right, navigationBars.bottom)
-        }
+        v.setPadding(
+            navigationBars.left,
+            navigationBars.top,
+            navigationBars.right,
+            if (isImeVisible) imeHeight else navigationBars.bottom
+        )
         insets
     }
 }
@@ -305,7 +323,7 @@ fun View.hasSafeDistanceNavigationBars(activity: Activity) {
 fun View.hasSafeDistanceStatusBars() {
     ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
         val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-        v.setPadding(statusBars.left, statusBars.top, statusBars.right, statusBars.bottom)
+        v.setPadding(statusBars.left, statusBars.top, statusBars.right, v.paddingBottom)
         insets
     }
 }

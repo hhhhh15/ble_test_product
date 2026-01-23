@@ -2,9 +2,12 @@ package com.homerunpet.homerun_pet_android_productiontest.base
 
 import android.os.Bundle
 import android.view.View
+import androidx.core.content.ContextCompat
 import androidx.viewbinding.ViewBinding
-import com.gyf.immersionbar.ktx.immersionBar
 import com.homerunpet.homerun_pet_android_productiontest.R
+import com.homerunpet.homerun_pet_android_productiontest.common.ext.enableEdgeToEdge
+import com.homerunpet.homerun_pet_android_productiontest.common.ext.hasSafeDistanceStatusBars
+import com.homerunpet.homerun_pet_android_productiontest.common.ext.setStatusBarDarkFont
 import com.homerunpet.homerun_pet_android_productiontest.common.widget.TitleBar
 
 /**
@@ -29,11 +32,11 @@ abstract class HMBaseActivity<VM : BaseViewModel, VB : ViewBinding> : BaseVBActi
 
     override fun initImmersionBar() {
         if (showToolBar()) {
-            immersionBar {
-                barColor(R.color.colors_f2f2f2)
-                autoDarkModeEnable(true)
-                titleBar(mToolbar)
-            }
+            // 1. 开启全屏模式（Edge-to-Edge）
+            enableEdgeToEdge()
+            setStatusBarDarkFont(true)
+            mToolbar.setBackgroundColor(ContextCompat.getColor(this, R.color.colors_f2f2f2))
+            mToolbar.hasSafeDistanceStatusBars()
         }
     }
 

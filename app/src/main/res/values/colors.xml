@@ -1,5 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- ========================================
+         HomerunAPP 颜色定义
+         命名规则: color_十六进制值(小写)
+         ======================================== -->
+
+    <!-- ========================================
+         品牌主色
+         ======================================== -->
+    <color name="colorPrimary">#008577</color>
+    <color name="colorPrimaryDark">#00574B</color>
+    <color name="colorAccent">#FF8E01</color>
+    <color name="colorDefaultText">#383231</color>
+    <color name="colorCommonButtonSelect">#FF7A47</color>
+    <color name="tabBarSelect">#383231</color>
+    <color name="tabBarUnSelect">#666666</color>
+
+    <!-- ========================================
+         基础颜色 - 按颜色值命名
+         ======================================== -->
+
+    <!-- 白色/灰色系列 -->
+    <color name="color_ffffff">#FFFFFF</color>  <!-- 纯白 -->
+    <color name="color_fafafa">#FAFAFA</color>
+    <color name="color_f5f5f5">#F5F5F5</color>
+    <color name="color_f2f2f2">#F2F2F2</color>  <!-- 页面背景 -->
+    <color name="color_eeeeee">#EEEEEE</color>
+    <color name="color_e0e0e0">#E0E0E0</color>
+    <color name="color_dddddd">#DDDDDD</color>  <!-- 分割线 -->
+    <color name="color_cccccc">#CCCCCC</color>
+    <color name="color_bdbdbd">#BDBDBD</color>
+    <color name="color_999999">#999999</color>  <!-- 辅助文字 -->
+    <color name="color_9e9e9e">#9E9E9E</color>
+    <color name="color_757575">#757575</color>
+    <color name="color_666666">#666666</color>  <!-- 次要文字 -->
+    <color name="color_616161">#616161</color>
+    <color name="color_424242">#424242</color>
+    <color name="color_383231">#383231</color>  <!-- 主要文字 -->
+    <color name="color_383231_p10">#E6383231</color>  <!-- 10%透明度 -->
+    <color name="color_2e2a29">#2E2A29</color>
+    <color name="color_212121">#212121</color>
+    <color name="color_000000">#000000</color>  <!-- 纯黑 -->
+
+    <!-- 橙色系列 -->
+    <color name="color_ff8e01">#FF8E01</color>
+    <color name="color_ff7a47">#FF7A47</color>  <!-- 主按钮橙 -->
+    <color name="color_e66a37">#E66A37</color>  <!-- 按钮按下 -->
+    <color name="color_ff9800">#FF9800</color>  <!-- 警告橙 -->
+
+    <!-- 绿色系列 -->
+    <color name="color_008577">#008577</color>  <!-- 主绿色 -->
+    <color name="color_00574b">#00574B</color>  <!-- 深绿 -->
+    <color name="color_4caf50">#4CAF50</color>  <!-- 成功绿 -->
+
+    <!-- 红色系列 -->
+    <color name="color_ff2742">#FF2742</color>  <!-- 错误红 -->
+    <color name="color_f44336">#F44336</color>
+    <color name="color_e53935">#E53935</color>
+
+    <!-- 蓝色系列 -->
+    <color name="color_2196f3">#2196F3</color>  <!-- 信息蓝 -->
+    <color name="color_1976d2">#1976D2</color>
+
+    <!-- 黄色系列 -->
+    <color name="color_ffeb3b">#FFEB3B</color>
+    <color name="color_ffc107">#FFC107</color>
+
+    <!-- 紫色系列 -->
+    <color name="color_9c27b0">#9C27B0</color>
+    <color name="color_7b1fa2">#7B1FA2</color>
+
+    <!-- ========================================
+         透明色 - 带透明度
+         命名: color_透明度_颜色值
+         ======================================== -->
+    <color name="transparent">#00000000</color>
+
+    <!-- 黑色透明度 (10%-90%) -->
+    <color name="color_10_000000">#1A000000</color>
+    <color name="color_20_000000">#33000000</color>
+    <color name="color_30_000000">#4D000000</color>
+    <color name="color_40_000000">#66000000</color>
+    <color name="color_50_000000">#80000000</color>
+    <color name="color_60_000000">#99000000</color>
+    <color name="color_70_000000">#B3000000</color>
+    <color name="color_80_000000">#CC000000</color>
+    <color name="color_90_000000">#E6000000</color>
+
+    <!-- 白色透明度 (10%-90%) -->
+    <color name="color_10_ffffff">#1AFFFFFF</color>
+    <color name="color_20_ffffff">#33FFFFFF</color>
+    <color name="color_30_ffffff">#4DFFFFFF</color>
+    <color name="color_40_ffffff">#66FFFFFF</color>
+    <color name="color_50_ffffff">#80FFFFFF</color>
+    <color name="color_60_ffffff">#99FFFFFF</color>
+    <color name="color_70_ffffff">#B3FFFFFF</color>
+    <color name="color_80_ffffff">#CCFFFFFF</color>
+    <color name="color_90_ffffff">#E6FFFFFF</color>
+
+    <!-- 橙色透明度 -->
+    <color name="color_50_ff7a47">#80FF7A47</color>
+
+    <!-- ========================================
+         旧命名兼容 (保留)
+         ======================================== -->
+    <color name="colors_white">#FFFFFF</color>
+    <color name="colors_f2f2f2">#F2F2F2</color>
+    <color name="colors_ffffff">#FFFFFF</color>
+    <color name="colors_999999">#999999</color>
+    <color name="colors_FF7A47">#FF7A47</color>
+    <color name="colors_FF7A47_50p">#80FF7A47</color>
+    <color name="colors_dddddd">#DDDDDD</color>
+    <color name="colors_666666">#666666</color>
+
 </resources>

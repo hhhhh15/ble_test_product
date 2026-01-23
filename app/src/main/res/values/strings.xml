@@ -1,3 +1,40 @@
 <resources>
     <string name="app_name">霍曼厂测工具</string>
+
+    <!-- 网络错误处理相关字符串 -->
+    <string name="NETWORK_ERROR">网络错误</string>
+    <string name="INVALID_COUNTRY_CODE">非法国家码</string>
+    <string name="TOO_MANY_CAPTCHA_REQUESTS">请求发送验证码太频繁</string>
+    <string name="CAPTCHA_SEND_FAILED">发送验证码失败</string>
+    <string name="CAPTCHA_VERIFY_FAILED">极速验证不通过</string>
+    <string name="CODE_VERIFY_FAILED">验证码错误</string>
+    <string name="INVALID_PHONE">手机号不合法</string>
+    <string name="INVALID_EMAIL">邮箱号不合法</string>
+    <string name="CREATE_USER_FAILED">创建用户失败</string>
+    <string name="BAD_REQUEST">非法请求</string>
+    <string name="PHONE_NOT_REGISTERED">手机号未注册</string>
+    <string name="EMAIL_NOT_REGISTERED">邮箱未注册</string>
+    <string name="INVALID_PASSWORD">密码错误</string>
+    <string name="INVALID_PASSWORD_REUSE">近3次修改密码相同</string>
+    <string name="INVALID_PASSWORD_TOO_OFTEN">7天内修改密码超过5次</string>
+    <string name="INVALID_AUTHORIZATION">无效token</string>
+    <string name="INVALID_NONCE">无效nonce</string>
+    <string name="INVALID_SIGNATURE">无效签名</string>
+    <string name="INVALID_TIMESTAMP">无效时间戳</string>
+    <string name="INTERNAL_SERVER_ERROR">服务内部出错</string>
+    <string name="CANNOT_REMOVE_LAST_LOGIN_METHOD">不能解绑最后一个登录方式</string>
+    <string name="CANNOT_BIND_SELF">不能绑定自己的账号</string>
+    <string name="EMAIL_ALREADY_IN_USE">邮箱已被绑定</string>
+    <string name="PHONE_ALREADY_IN_USE">手机已被绑定</string>
+    <string name="INVALID_AUTH_TOKEN">无效授权token</string>
+    <string name="WECHAT_ID_ALREADY_IN_USE">该微信账号已被绑定</string>
+    <string name="APPLE_ID_ALREADY_IN_USE">该苹果账号已被绑定</string>
+    <string name="INVALID_TEXT_SENSITIVE">包含敏感词</string>
+    <string name="DYPNS_TOKEN_AUTH_FAILED">号码认证token校验失败</string>
+    <string name="FAMILY_LIMIT_EXCEEDED">超出家庭数量上限</string>
+    <string name="NOT_IN_FAMILY">未加入家庭</string>
+    <string name="UNAUTHORIZED">没有权限</string>
+    <string name="ROOM_LIMIT_EXCEEDED">超出房间数量上限</string>
+    <!-- 网络错误处理相关字符串 -->
+
 </resources>

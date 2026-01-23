@@ -1,6 +1,8 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'kotlin-kapt'
+    id 'kotlin-parcelize'
 }
 
 android {
@@ -30,6 +32,10 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
@@ -44,6 +50,9 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 
     // region ------------------------------ 三方库 ------------------------------
+    implementation files('libs/eziot-ble-release.aar')
+    implementation 'io.github.ezviz-open:ezviz-sdk:5.25.1'
+
     implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
@@ -65,6 +74,7 @@ dependencies {
     implementation 'com.github.DylanCaiCoding.Longan:longan-design:1.1.1'
 
     // net
+    implementation 'com.google.code.gson:gson:2.8.5'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.github.liangjingkanji:Net:3.7.0'
     implementation 'com.github.liangjingkanji:BRV:1.6.1'
@@ -76,6 +86,10 @@ dependencies {
     // kotlin扩展（可选）
     implementation 'com.geyifeng.immersionbar:immersionbar-ktx:3.2.2'
     implementation 'com.elvishew:xlog:1.11.1'
+
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+    kapt 'com.github.bumptech.glide:compiler:4.16.0'
 
     // endregion
 

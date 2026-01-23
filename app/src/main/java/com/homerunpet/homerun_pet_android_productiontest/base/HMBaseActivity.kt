@@ -20,6 +20,8 @@ abstract class HMBaseActivity<VM : BaseViewModel, VB : ViewBinding> : BaseVBActi
     protected val TAG: String by lazy { this::class.java.simpleName }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 1. 在 onCreate 最开始开启全屏模式（Edge-to-Edge）
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
     }
 
@@ -32,8 +34,6 @@ abstract class HMBaseActivity<VM : BaseViewModel, VB : ViewBinding> : BaseVBActi
 
     override fun initImmersionBar() {
         if (showToolBar()) {
-            // 1. 开启全屏模式（Edge-to-Edge）
-            enableEdgeToEdge()
             setStatusBarDarkFont(true)
             mToolbar.setBackgroundColor(ContextCompat.getColor(this, R.color.colors_f2f2f2))
             mToolbar.hasSafeDistanceStatusBars()

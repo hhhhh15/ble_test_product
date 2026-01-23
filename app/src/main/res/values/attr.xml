@@ -9,6 +9,8 @@
         <attr name="titleSize" format="dimension" />
         <!-- 左侧图标资源 -->
         <attr name="leftIcon" format="reference" />
+        <!-- 左侧图标颜色 -->
+        <attr name="leftIconTint" format="color" />
         <!-- 标题栏背景颜色 -->
         <attr name="titleBarBackground" format="color" />
         <!-- 标题栏高度 -->

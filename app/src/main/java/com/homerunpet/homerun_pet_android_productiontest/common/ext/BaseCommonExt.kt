@@ -1,6 +1,7 @@
 package com.homerunpet.homerun_pet_android_productiontest.common.ext
 
 import android.app.Activity
+import android.graphics.Color
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -287,6 +288,8 @@ fun BodyRequest.gson(vararg body: Pair<String, Any?>) {
  */
 fun Activity.enableEdgeToEdge() {
     WindowCompat.setDecorFitsSystemWindows(window, false)
+    window.statusBarColor = Color.TRANSPARENT
+    window.navigationBarColor = Color.TRANSPARENT
 }
 
 /**

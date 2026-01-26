@@ -191,4 +191,13 @@ object HmApi {
 
     fun getUploadFile(user_id: String) = "/v1/users/$user_id/provision-logs"
 
+    // 获取设备的产品详情
+    fun getDeviceDetail(product_key: String) = "/v1/devices/products-detail/$product_key"
+
+    // 获取设备信息详情
+    fun getDeviceInfoDetail(device_name: String) = "/v1/devices/$device_name/detail"
+
+    // 添加设备
+    fun postAddDevice(device_name: String) = "/v1/devices/$device_name"
+
 }

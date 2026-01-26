@@ -384,8 +384,11 @@ class HomerunCustomProvisionProtocol(
      */
     private fun connectBleDevice(mac: String, emitter: io.reactivex.rxjava3.core.ObservableEmitter<Boolean>) {
         BleManager.get().connect(mac) {
-            onConnectStart { /* 连接开始 */ }
+            onConnectStart {
+                HmLog("[连接] 蓝牙连接开始: $mac")
+            }
             onConnectSuccess { bleDevice, _ ->
+                HmLog("[连接] 蓝牙连接成功: $mac")
                 connectedBleDevice = bleDevice
                 if (!emitter.isDisposed) {
                     emitter.onNext(true)
@@ -393,12 +396,18 @@ class HomerunCustomProvisionProtocol(
                 }
             }
             onConnectFail { _, exception ->
+                HmLog("[连接] 蓝牙连接失败: $mac, 原因: $exception")
                 if (!emitter.isDisposed) {
                     emitter.tryOnError(Throwable("连接失败: $exception"))
                 }
             }
-            onDisConnecting { _, _, _, _ -> /* 断开中 */ }
-            onDisConnected { _, _, _, _ -> connectedBleDevice = null }
+            onDisConnecting { _, _, _, _ ->
+                HmLog("[连接] 蓝牙正在断开: $mac")
+            }
+            onDisConnected { _, _, _, _ ->
+                HmLog("[连接] 蓝牙已断开: $mac")
+                connectedBleDevice = null
+            }
         }
     }
 

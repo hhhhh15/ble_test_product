@@ -1,5 +1,6 @@
 package com.homerunpet.homerun_pet_android_productiontest.base.net
 
+import android.util.Log
 import com.drake.net.convert.NetConverter
 import com.drake.net.exception.ConvertException
 import com.drake.net.exception.ResponseException
@@ -23,9 +24,19 @@ class GsonConverter : NetConverter {
             when {
                 code in 200..299 -> { // 请求成功
                     val bodyString = response.body?.string()
+
+                    Log.e("JSON_DEBUG", "========== 原始 JSON 开始 ==========")
+                    Log.e("JSON_DEBUG", bodyString ?: "body 为空")
+                    Log.e("JSON_DEBUG", "========== 原始 JSON 结束 ==========")
+                    Log.e("JSON_DEBUG", "目标类型: $succeed")
+
                     try {
                         return bodyString?.parseBody<R>(succeed)
                     } catch (e: Exception) {
+                        Log.e("JSON_DEBUG", "解析失败原因: ${e.message}")
+                        Log.e("JSON_DEBUG", "异常类型: ${e.javaClass.simpleName}")
+                        e.printStackTrace()
+
                         throw ResponseException(response, response.message , tag = response.code)
                     }
                 }

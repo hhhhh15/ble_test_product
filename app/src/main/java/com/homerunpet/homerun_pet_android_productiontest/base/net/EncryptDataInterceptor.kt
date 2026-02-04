@@ -27,14 +27,23 @@ class EncryptDataInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
+//        //密钥分支
+//        val path = originalRequest.url.encodedPath
+//
+//        val AppSecret = if (path.startsWith("/v1/auth/login/phone")) {
+//            "bff382ebd7feee2badedae6eb66d7be2"
+//        } else {
+//            appSecret
+//        }
+
         // 1. 准备基础参数
         val timestamp = (System.currentTimeMillis() / 1000).toString()
-        val nonce = generateNonce()
-        val httpMethod = originalRequest.method.uppercase()
+        val nonce = generateNonce()  //生成随机字符串
+        val httpMethod = originalRequest.method.uppercase()  //uppercase方法将方法名转换成大写
 
         // 2. 获取 Body 字符串并计算 ContentSha256
         val bodyString = getBodyString(originalRequest.body)
-        val contentSha256 = sha256Hex(bodyString)
+        val contentSha256 = sha256Hex(bodyString)    //根据body数据通过SHA256生成hash值
 
         // 3. 构造 CanonicalizedURI (Path 全量编码)
         val canonicalizedURI = encodeRfc3986(originalRequest.url.encodedPath)
@@ -61,7 +70,7 @@ class EncryptDataInterceptor(
         val canonicalRequest = "$httpMethod\n$canonicalizedURI\n$canonicalizedQueryString\n$signedHeadersString\n$contentSha256"
 
         // 7. 生成签名
-        val signature = hmacSHA256(canonicalRequest, appSecret)
+        val signature = hmacSHA256(canonicalRequest, appSecret)   //改了密钥
 
         // 打印调试日志
 //        Log.d(TAG, "================================= Signature Debug =================================")

@@ -3,11 +3,11 @@ package com.homerunpet.homerun_pet_android_productiontest.ble.scanner
 import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
+import androidx.databinding.library.baseAdapters.BuildConfig
 import com.bhm.ble.BleManager
 import com.bhm.ble.attribute.BleOptions
 import com.bhm.ble.data.BleScanFailType
 import com.bhm.ble.device.BleDevice
-import com.homerunpet.homerun_pet_android_productiontest.BuildConfig
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.HMFastBleDevice
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.scanner.packet.HomerunBlePacket

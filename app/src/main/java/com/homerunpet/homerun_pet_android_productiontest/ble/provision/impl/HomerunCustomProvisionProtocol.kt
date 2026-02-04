@@ -144,7 +144,7 @@ class HomerunCustomProvisionProtocol(
     private fun fetchDeviceDetail(productKey: String): Observable<Boolean> {
         return Observable.create { emitter ->
             val scope = scopeNet {
-                try {
+                try {//这里调用了api
                     val detail = Get<DevicesProductsDetailBean?>(HmApi.getDeviceDetail(productKey)).await()
                     if (!emitter.isDisposed) {
                         if (detail != null) {
@@ -253,7 +253,7 @@ class HomerunCustomProvisionProtocol(
     }
 
     /**
-     * 查询配网信息和设备状态 (使用设备详情校验上线)
+     * 查询配网信息和设备状态 (使用设备详情校验上线).如果设备配网成功的话，这个方法是从云端获取到数据的
      */
     override fun checkOnlineStatus(deviceSerial: String): Observable<ProvisionEvent> {
         return fetchDeviceInfoDetail(deviceSerial)

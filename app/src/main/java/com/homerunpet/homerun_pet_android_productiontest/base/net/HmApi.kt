@@ -4,6 +4,20 @@ object HmApi {
     fun getBaseUrl(): String {
         return "https://app.homerunsmartapi.com"
     }
+/*
+* 产测app的接口
+* */
+    //登录post固定账号密码
+    const val PRODUCT_TEXT_LOGIN= "/v1/auth/login/phone"
+
+    //弄一个自动刷新token的
+    const val PRODUCT_TEXT_TOKEN="/v1/users/refresh-token"
+
+    //简单的上传测试结果
+    const val PRODUCT_TEXT_RESULT="/v1/devices/{device_name}/production-testing-logs"
+
+    //获取到所有设备的信息
+    const val PRODUCT_TEXT_ALL_DEVICE="/v1/devices"
 
     /**
      * ************************************************************************** 通用接口

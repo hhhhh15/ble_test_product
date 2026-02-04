@@ -21,7 +21,7 @@ class ProvisionManager private constructor(
     private val context: Context
 ) {
 
-    private var currentProtocol: IProvisionProtocol? = null
+    private var currentProtocol: IProvisionProtocol? = null  //可指向任何一个实现了接口的实现类，多实现体现
     // 全局唯一的产品数据源
     private var globalProduct: Product? = null
 
@@ -53,7 +53,9 @@ class ProvisionManager private constructor(
             ProvisionProtocol.AP
         }
 
-        // 如果协议类型改变，或者当前没有协议实例，则重新创建
+        // 如果协议类型改变，或者当前没有协议实例，则重新创建对应的实现类，目前就一个HomerunCustomProvisionProtocol实现类
+        //private var currentProtocol: IProvisionProtocol? = null 就=HomerunCustomProvisionProtocol（）
+
         if (currentProtocol == null || getCurrentProtocol() != protocol) {
             currentProtocol = when (protocol) {
                 ProvisionProtocol.HOMERUN_CUSTOM -> HomerunCustomProvisionProtocol(context)

@@ -8,7 +8,7 @@ package com.homerunpet.homerun_pet_android_productiontest.ble.model
  */
 data class HMFastBleDevice(
     val mac: String,                        // MAC地址
-    val name: String,                       // 设备名称
+    var name: String,                       // 设备名称
     val rssi: Int,                          // 信号强度
     val serviceUuids: List<String> = emptyList(),       // 服务UUID列表
     val manufacturerItems: Map<Int, ByteArray> = emptyMap(), // 完整的厂商数据列表 {CompanyId -> Data}

@@ -96,7 +96,8 @@ open class MyApplication : Application() {
             // 请求拦截器（添加 Header 等）
             setRequestInterceptor(GlobalHeaderInterceptor())
             // 加密拦截器
-            addInterceptor(EncryptDataInterceptor("8946644a4eb35e50f83f96dbb6403dab"))
+            // 8946644a4eb35e50f83f96dbb6403dab
+            addInterceptor(EncryptDataInterceptor("bff382ebd7feee2badedae6eb66d7be2"))
             // 转换器与异常处理
             setConverter(GsonConverter())
             setErrorHandler(HMNetErrorHandler())

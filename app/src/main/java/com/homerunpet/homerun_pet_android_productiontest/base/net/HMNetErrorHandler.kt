@@ -9,7 +9,8 @@ import com.hjq.toast.Toaster
 import com.homerunpet.homerun_pet_android_productiontest.MyApplication
 import com.homerunpet.homerun_pet_android_productiontest.R
 
-class HMNetErrorHandler : NetErrorHandler {
+class
+HMNetErrorHandler : NetErrorHandler {
     override fun onError(e: Throwable) {
         val message = when (e) {
             is ResponseException -> {

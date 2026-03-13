@@ -3,7 +3,6 @@ package com.homerunpet.homerun_pet_android_productiontest.ble.scanner
 import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
-import androidx.databinding.library.baseAdapters.BuildConfig
 import com.bhm.ble.BleManager
 import com.bhm.ble.attribute.BleOptions
 import com.bhm.ble.data.BleScanFailType
@@ -11,7 +10,10 @@ import com.bhm.ble.device.BleDevice
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.HMFastBleDevice
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.scanner.packet.HomerunBlePacket
+import com.homerunpet.homerun_pet_android_productiontest.common.ext.saveScanLog
+import com.homerunpet.v2.ble.scanner.DeviceIdentifier
 import io.reactivex.rxjava3.core.Observable
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 统一BLE扫描器 - 唯一的扫描入口
@@ -32,25 +34,25 @@ class HMBleScanner private constructor(
     init {
         // 初始化配置
         val options = BleOptions.builder()
-            .setEnableLog(BuildConfig.DEBUG)
-            .setMtu(247)
+            .setEnableLog(false)
             .build()
 
         BleManager.get().init(context.applicationContext as Application, options)
     }
 
+    // region ------------------------------ 静态常量与单例 ------------------------------
     companion object {
         @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: HMBleScanner? = null
 
-        // PF20 原始PID (Hex) -> 映射PID
-        private const val PID_PF20_RAW = "C434E1B7"
-        private const val PID_PF20_MAPPED = "GDA8052E04F99490CB6826"
-
         // PD50 原始PID (Hex) -> 映射PID
         private const val PID_PD50_RAW = "CA1D3150"
         private const val PID_PD50_MAPPED = "54528FB7E4C44EFCAD9E10"
+
+        // PF20 原始PID (Hex) -> 映射PID
+        private const val PID_PF20_RAW = "C434E1B7"
+        private const val PID_PF20_MAPPED = "GDA8052E04F99490CB6826"
 
         fun getInstance(context: Context): HMBleScanner {
             return instance ?: synchronized(this) {
@@ -60,6 +62,9 @@ class HMBleScanner private constructor(
             }
         }
     }
+    // endregion
+
+    // region ------------------------------ 扫描逻辑 ------------------------------
 
     /**
      * 扫描所有BLE设备
@@ -67,7 +72,7 @@ class HMBleScanner private constructor(
      * @param timeout 扫描超时时间(秒) - 注意：BleCore 使用全局配置超时，此处仅影响 Observable 的生命周期
      * @return Observable<HMFastBleDevice> 统一的设备模型流
      */
-    fun scanDevices(timeout: Long = 90): Observable<HMFastBleDevice> {
+    fun scanDevices(timeout: Long = 1800): Observable<HMFastBleDevice> {
         return Observable.create { emitter ->
             // 开始扫描
             BleManager.get().startScan(scanMillisTimeOut = timeout * 1000L, 0, 1000) {
@@ -112,6 +117,29 @@ class HMBleScanner private constructor(
         }
     }
 
+    /**
+     * 扫描特定协议的设备
+     *
+     * @param protocol 配网协议类型
+     * @param timeout 扫描超时时间(秒)
+     */
+    fun scanDevicesByProtocol(protocol: ProvisionProtocol, timeout: Long = 30): Observable<HMFastBleDevice> {
+        return scanDevices(timeout)
+            .filter { it.protocol == protocol }
+    }
+
+    /**
+     * 停止扫描
+     */
+    fun stopScan() {
+        BleManager.get().stopScan()
+    }
+    // endregion
+
+    // region ------------------------------ 解析与日志逻辑 ------------------------------
+    // 日志缓存：Mac -> (LastContent, LastTime)
+    private val logCache = ConcurrentHashMap<String, Pair<String, Long>>()
+
     private fun mapToDomainDevice(bleDevice: BleDevice): HMFastBleDevice {
         val mac = bleDevice.deviceAddress ?: ""
         val name = bleDevice.deviceName ?: ""
@@ -123,7 +151,6 @@ class HMBleScanner private constructor(
         val protocol = DeviceIdentifier.identifyProtocol(
             name,
             parsedRecord.serviceUuids,
-            parsedRecord.manufacturerData,
             parsedRecord.manufacturerItems
         )
 
@@ -132,6 +159,12 @@ class HMBleScanner private constructor(
         var provisionStatus: Boolean = true
         var provisionMode: Int = 0
         var pk: String? = ""
+
+        // Log specific vars (Custom Only)
+        var logCompany = ""
+        var logVer = ""
+        var logDevType = ""
+        var logMode = ""
 
         if (protocol == ProvisionProtocol.EZIOT) {
             val data2B18 = parsedRecord.manufacturerItems[0x2B18]
@@ -168,30 +201,57 @@ class HMBleScanner private constructor(
         } else if (protocol == ProvisionProtocol.HOMERUN_CUSTOM) {
             // 解析厂商自定义数据
             parsedRecord.manufacturerItems.let { items ->
-                for ((id, data) in items) {
-                    // Android 会把厂商数据的前2个字节解析为 Company ID (Key)
-                    // 但在该协议中，这两个字节是 Version 和 Function Mask，需要还原
-                    val byte0 = (id and 0xFF).toByte()
-                    val byte1 = ((id shr 8) and 0xFF).toByte()
-
-                    val fullData = ByteArray(2 + data.size)
-                    fullData[0] = byte0
-                    fullData[1] = byte1
-                    System.arraycopy(data, 0, fullData, 2, data.size)
-
-                    val packet = HomerunBlePacket.parse(fullData)
+                val homerunData = items[0xACE0]
+                if (homerunData != null) {
+                    // homerunData 已经是剔除了 CompanyID 后的 Payload (即从 Version/Type 开始)
+                    val packet = HomerunBlePacket.parse(homerunData)
                     if (packet != null) {
                         deviceSerial = packet.deviceNameSuffix
-                        // 配网模式: 
+                        // 配网模式:
                         // 0: Initial (首次配网，无网络信息)
                         // 1: Modify  (修改配网信息，有网络信息)
-                        // 3: Reset   (重置设备，即使有网络信息也重新配网)
                         provisionMode = packet.provisionMode
                         provisionStatus = packet.isProvisionSupported
                         pk = packet.productKey
-                        break
+
+                        // 日志字段
+                        logCompany = "ACE0"
+                        logVer = packet.protocolVersion.toString()
+                        logDevType = packet.deviceType.toString()
+                        logMode = packet.provisionMode.toString()
                     }
                 }
+            }
+        }
+
+        // [HRSCAN][蓝牙广播名字][序列号][(类型：蓝牙1.3、萤石、自研）][(不可配网、可配网)][company:(自研特有，公司id)][ver:(自研特有，协议版本号)][（自研特有，蓝牙类型，GATT、Mesh、Beacon][(自研特有，配网模式：初次配网、修改配网)]
+        val typeStr = when (protocol) {
+            ProvisionProtocol.HOMERUN_CUSTOM -> "自研"
+            ProvisionProtocol.EZIOT -> "萤石"
+            ProvisionProtocol.BLUFI -> "ESP"
+            else -> "未知"
+        }
+        val isProvStr = if (provisionStatus) "可配网" else "不可配网"
+
+        // 转换自研协议字段为可读字符串
+        val devTypeStr = when(logDevType) {
+            "1" -> "GATT"
+            "2" -> "Mesh"
+            "3" -> "Beacon"
+            else -> logDevType
+        }
+
+        val modeStr = when(logMode) {
+             "0" -> "初次配网"
+             "1" -> "修改配网"
+             else -> logMode
+        }
+
+        // 仅在协议为非 UNKNOWN 时打印日志 (即只打印萤石、ESP/Blufi、自研)
+        if (protocol != ProvisionProtocol.UNKNOWN) {
+            val logContent = "[HRSCAN][$name][${deviceSerial ?: ""}][$typeStr][$isProvStr][company:$logCompany][ver:$logVer][$devTypeStr][$modeStr]"
+            if (shouldPrintLog(mac, logContent)) {
+                saveScanLog(logContent)
             }
         }
 
@@ -203,10 +263,27 @@ class HMBleScanner private constructor(
             manufacturerItems = parsedRecord.manufacturerItems,
             provisionStatus = provisionStatus,
             protocol = protocol,
-            deviceSerial = deviceSerial?.uppercase(),
+            deviceSerial = deviceSerial,
             provisionMode = provisionMode,
-            pk = pk?.uppercase()
+            pk = pk
         )
+    }
+
+    private fun shouldPrintLog(mac: String, content: String): Boolean {
+        val currentTime = System.currentTimeMillis()
+        val lastRecord = logCache[mac]
+
+        if (lastRecord != null) {
+            val (lastContent, lastTime) = lastRecord
+            // 去重：只要内容与上一次一致，就永远不再打印
+            if (lastContent == content) {
+                return false
+            }
+        }
+
+        // 更新缓存并允许打印
+        logCache[mac] = Pair(content, currentTime)
+        return true
     }
 
     private data class ParsedScanRecord(
@@ -255,7 +332,7 @@ class HMBleScanner private constructor(
                             // 数据起点是 currentPos + 2 (Len + Type)
                             val lsb = bytes[currentPos + 2 + i].toInt() and 0xFF
                             val msb = bytes[currentPos + 2 + i + 1].toInt() and 0xFF
-                            // BLE是小端序(Little Endian), 低字节在前. 格式化为 "MSB LSB" (e.g. FCCC)
+                            // BLE是小端序(Little Endian), 低字节在前. 格式化为 "MSB LSB" (e.g. ACE0)
                             val uuid = String.format("%02X%02X", msb, lsb)
                             serviceUuids.add(uuid)
                             i += 2
@@ -291,23 +368,6 @@ class HMBleScanner private constructor(
 
         return ParsedScanRecord(serviceUuids, manufacturerData, manufacturerItems)
     }
-
-    /**
-     * 扫描特定协议的设备
-     *
-     * @param protocol 配网协议类型
-     * @param timeout 扫描超时时间(秒)
-     */
-    fun scanDevicesByProtocol(protocol: ProvisionProtocol, timeout: Long = 30): Observable<HMFastBleDevice> {
-        return scanDevices(timeout)
-            .filter { it.protocol == protocol }
-    }
-
-    /**
-     * 停止扫描
-     */
-    fun stopScan() {
-        BleManager.get().stopScan()
-    }
+    // endregion
 
 }

@@ -2,27 +2,37 @@ package com.homerunpet.homerun_pet_android_productiontest.base.net
 
 object HmApi {
     fun getBaseUrl(): String {
-        return "https://app.homerunsmartapi.com"
+        // return BuildConfig.HM_API_BASE_URL
+        return "http://ptest-app.homerunsmartapi.com"
     }
-/*
-* 产测app的接口
-* */
+
+    /**
+     * ************************************************************************** 通用接口
+     * **********************************
+     */
+
+    /*
+    * 产测app的接口
+    * */
     //登录post固定账号密码
     const val PRODUCT_TEXT_LOGIN= "/v1/auth/login/phone"
 
     //弄一个自动刷新token的
     const val PRODUCT_TEXT_TOKEN="/v1/users/refresh-token"
 
-    //简单的上传测试结果
+    //用户登录后后去信息
+    const val PRODUCT_USER_MESSAGE="/v1/users"
+
+    //简单的上传测试结果/{device_name}  2.6 这个是要填写的参数值的啊
     const val PRODUCT_TEXT_RESULT="/v1/devices/{device_name}/production-testing-logs"
 
-    //获取到所有设备的信息
+    //获取到所有设备的信息   ，丢，2.6这个接口绝对是带参数的GET方法..这个接口后端不用了
     const val PRODUCT_TEXT_ALL_DEVICE="/v1/devices"
 
-    /**
-     * ************************************************************************** 通用接口
-     * **********************************
-     */
+    //用户退出登录
+    const val PRODUCT_USER_LOGOUT="/v1/users/logout"
+
+
     // 获取地区列表
     const val COMMON_REGION = "/v4/common/region"
 
@@ -196,22 +206,68 @@ object HmApi {
     fun getPetsDynamic(pet_id: Int) = "/v4/pets/$pet_id/dynamic"
 
     /**
-     * ************************************************************************** device-manager
+     * ************************************************************************** 设备相关
      * **********************************
      */
+
+
 
     // 获取品类产品
     const val CATEGORY_PRODUCTS = "/v1/devices/category-products"
 
     fun getUploadFile(user_id: String) = "/v1/users/$user_id/provision-logs"
 
-    // 获取设备的产品详情
-    fun getDeviceDetail(product_key: String) = "/v1/devices/products-detail/$product_key"
+    // 获取产品详情
+    fun getProductsByKey(product_key: String) = "/v1/products/$product_key"
 
-    // 获取设备信息详情
-    fun getDeviceInfoDetail(device_name: String) = "/v1/devices/$device_name/detail"
+    // 获取设备配网状态
+    fun getDeviceProvisionStatus(device_name: String) = "/v1/devices/$device_name/provision-status"
 
-    // 添加设备
+    //获取产测报告
+    fun getTestReport()="/v1/devices/production-testing-logs"
+
+    //产测报告上传
+    fun postTestReport(device_name:String)="/v1/devices/$device_name/production-testing-logs"
+
+    // 绑定设备/更新设备别名
     fun postAddDevice(device_name: String) = "/v1/devices/$device_name"
+
+    // 绑定设备/更新设备别名
+    fun getDevice(device_name: String) = "/v1/devices/$device_name"
+
+    // 获取设备固件信息
+    fun getDeviceFirmwareInfo(deviceName: String) = "/v1/devices/$deviceName/firmwares"
+
+    // (获取/创建/修改/删除)定时任务
+    const val DEVICES_TASK = "/v1/tasks"
+
+    // 获取产品物模型
+    fun getProductsThingModel(product_key: String) = "/v1/products/$product_key/thing-model"
+
+    //下发设备服务
+    fun issueDeviceService(device_name: String,identifier:String)="/v1/devices/$device_name/service/$identifier"
+
+    // 查询设备属性
+    fun getDeviceProperty(device_name: String) = "/v1/devices/$device_name/properties"
+
+    // 更新设备属性
+    fun getUpdateDeviceProperty(device_name: String) = "/v1/devices/$device_name/properties"
+
+    // 获取设备故障信息
+    fun getDeviceFaultInfo(device_name: String) = "/v1/devices/$device_name/faults"
+
+    // 删除设备
+    fun getDeleteDevice(device_name: String) = "/v1/devices/$device_name"
+
+    /**
+     * ************************************************************************** 广告
+     * **********************************
+     */
+
+    // 开屏广告
+    const val ADS_SPLASH = "/v1/ads/splash"
+
+    // 首页轮播广告
+    const val ADS_BANNER = "/v1/ads/banner"
 
 }

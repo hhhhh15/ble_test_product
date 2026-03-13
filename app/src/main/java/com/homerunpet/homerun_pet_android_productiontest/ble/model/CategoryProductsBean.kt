@@ -48,8 +48,8 @@ data class Product(
     var product_key: String? = null,
     var product_keys: List<String?>? = null,
     var update_time: Int? = null,
-    var isSelected: Boolean = false,//✔云端没有，UI 列表选择状态
-    var address: String? = null,//✔云端没有，BLE MAC 地址
+    var isSelected: Boolean = false,
+    var address: String? = null,
     // 配网图
     var prov_video_url: String? = null,
     // 配网提示语
@@ -57,13 +57,13 @@ data class Product(
     // 设备wifi名指引图
     var ap_wifi_img_url: String? = null,
     // 序列号 带冒号
-    var deviceSerial: String? = null,//✔云端没有，扫描或设备返回的序列号
+    var deviceSerial: String? = null,
     var is_ipc: Boolean? = false,
     var allowed_keys: List<String?>? = null,
     // "VF20/PF20"
     var product_model: String? = null,
     // 完整的 HMFastBleDevice 对象，包含协议、RSSI等信息
-    var hmFastBleDevice: HMFastBleDevice? = null,//✔云端没有
+    var hmFastBleDevice: HMFastBleDevice? = null,
     // 最后一次扫描到的时间戳 (ms)，用于超时移除
-    var lastSeenTime: Long = 0L//✔云端没有
+    var lastSeenTime: Long = 0L
 )

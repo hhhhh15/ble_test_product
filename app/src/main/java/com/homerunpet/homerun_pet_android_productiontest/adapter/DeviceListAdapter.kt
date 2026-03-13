@@ -1,26 +1,31 @@
 package com.homerunpet.homerun_pet_android_productiontest.adapter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.homerunpet.homerun_pet_android_productiontest.ble.model.HMFastBleDevice
-import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionManager
+
+import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
+
 import com.homerunpet.homerun_pet_android_productiontest.databinding.ItemBledeviceBinding
 
 class DeviceListAdapter (
-    private val onItemClick: ((HMFastBleDevice) -> Unit)? = null
+    private val onItemClick: (Product) -> Unit
 ) : RecyclerView.Adapter<DeviceListAdapter.DeviceViewHolder>() {
 
-    private val devices = mutableListOf<HMFastBleDevice>()
+    private val devices = mutableListOf<Product>()
 
 
+    //ViewHolder类
     inner class DeviceViewHolder(val binding: ItemBledeviceBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(device: HMFastBleDevice) {
-            binding.tvDeviceKey.text = device.pk
-            binding.tvProductName.text=device.name
-            binding.tvDeviceDeviceSerial.text=device.deviceSerial
+        fun bind(mixProduct: Product) {
+            binding.tvProductName.text="产品名:" +mixProduct.name
+            binding.tvDeviceKey.text = "设备pk："+ mixProduct.hmFastBleDevice?.pk
+            binding.tvDeviceMac.text="mac:" + mixProduct.hmFastBleDevice?.mac
+//            binding.tvDeviceDeviceSerial.text="序列号:"+mixProduct.deviceSerial
             binding.btnConnect.setOnClickListener {
-                onItemClick?.invoke(device)
+                Log.d("hhhAdapter", "🔥 按钮被点击了！设备: ${mixProduct.name}")
+                onItemClick(mixProduct)
             }
         }
     }
@@ -32,6 +37,7 @@ class DeviceListAdapter (
             parent,
             false
         )
+        Log.d("Adapter", "✅ ViewHolder 创建了")
         return DeviceViewHolder(binding)
     }
 
@@ -43,7 +49,7 @@ class DeviceListAdapter (
 
     override fun getItemCount(): Int  = devices.size
 
-    fun submitList(newList: List<HMFastBleDevice>) {
+    fun submitList(newList: List<Product>) {
         devices.clear()
         devices.addAll(newList)
         notifyDataSetChanged()

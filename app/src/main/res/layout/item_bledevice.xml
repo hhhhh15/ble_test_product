@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="60dp"
+    android:layout_height="wrap_content"
     android:paddingHorizontal="12dp">
 
     <!-- 左侧信息区域（上下两个 TextView） -->
@@ -18,35 +18,45 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
+
         <TextView
             android:id="@+id/tv_product_name"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="产品名 "
             android:textSize="14sp"
             android:textColor="#333333"
-            android:maxLines="1"
-            android:ellipsize="end" />
+           />
+
+        <TextView
+            android:id="@+id/tv_device_mac"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="18dp"
+            android:text="设备mac "
+            android:textSize="16sp"
+            android:textColor="#333333"
+       />
+
 
         <TextView
             android:id="@+id/tv_device_key"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="设备 Key"
             android:textSize="12sp"
             android:textColor="#888888"
-            android:maxLines="1"
-            android:ellipsize="end" />
+           />
 
-        <TextView
-            android:id="@+id/tv_device_deviceSerial"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="序列号"
-            android:textSize="12sp"
-            android:textColor="#888888"
-            android:maxLines="1"
-            android:ellipsize="end" />
+<!--        <TextView-->
+<!--            android:id="@+id/tv_device_deviceSerial"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:text="序列号"-->
+<!--            android:textSize="12sp"-->
+<!--            android:textColor="#888888"-->
+<!--            android:maxLines="1"-->
+<!--            android:ellipsize="end" />-->
 
     </LinearLayout>
 
@@ -54,7 +64,7 @@
     <Button
         android:id="@+id/btn_connect"
         android:layout_width="100dp"
-        android:layout_height="50dp"
+        android:layout_height="60dp"
         android:text="连接"
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"

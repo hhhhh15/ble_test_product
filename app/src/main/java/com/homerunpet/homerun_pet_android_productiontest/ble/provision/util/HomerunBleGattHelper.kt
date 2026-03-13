@@ -1,4 +1,4 @@
-package com.homerunpet.v2.ble.provision.util
+package com.homerunpet.homerun_pet_android_productiontest.ble.provision.util
 
 import android.util.Log
 import com.bhm.ble.BleManager
@@ -28,11 +28,9 @@ object HomerunBleGattHelper {
      * @return Observable发射实际协商的 MTU 大小
      */
     fun setMtu(bleDevice: BleDevice, mtu: Int): Observable<Int> {
-        Log.d(TAG, "[Gatt] 请求设置MTU: $mtu")
         return Observable.create { emitter ->
             BleManager.get().setMtu(bleDevice, mtu) {
                 onMtuChanged { bleDevice: BleDevice, mtu: Int ->
-                    Log.d(TAG, "MTU协商成功: $mtu")
                     if (!emitter.isDisposed) {
                         emitter.onNext(mtu)
                         emitter.onComplete()
@@ -40,12 +38,16 @@ object HomerunBleGattHelper {
                 }
 
                 onSetMtuFail { bleDevice: BleDevice, throwable: Throwable ->
-                    Log.e(TAG, "MTU设置失败: ${throwable.message}")
                     if (!emitter.isDisposed) {
-                        // MTU 设置失败可以使用默认值继续，不一定要 Error
-                        // 这里选择把失败当做普通的 23 处理
-                        emitter.onNext(23)
-                        emitter.onComplete()
+                        // 如果是超时（通常意味着底层任务队列阻塞或链路异常），建议抛出 Error
+                        // 这样可以让配网流程及时中断，而不是在后续发生数据截断或解析崩溃
+                        if (throwable.message?.contains("timeout", ignoreCase = true) == true) {
+                            emitter.onError(throwable)
+                        } else {
+                            // 其他情况（如设备明确不支持 MTU 协商），降级回默认值 23 尝试继续
+                            emitter.onNext(23)
+                            emitter.onComplete()
+                        }
                     }
                 }
             }
@@ -227,16 +229,16 @@ object HomerunBleGattHelper {
     /**
      * 打印 GATT 服务列表
      */
-    fun dumpGattServices(bleDevice: BleDevice) {
-        val gatt = BleManager.get().getBluetoothGatt(bleDevice)
-        if (gatt == null) {
-            Log.e(TAG, "Dump失败: GATT is null")
-            return
-        }
+    /**
+     * 打印并返回 GATT 服务列表
+     */
+    fun dumpGattServices(bleDevice: BleDevice): String {
+        val gatt = BleManager.get().getBluetoothGatt(bleDevice) ?: return "Dump失败: GATT is null"
 
-        Log.d(TAG, "=== 服务列表: ${bleDevice.deviceAddress} ===")
+        val sb = StringBuilder()
+        sb.append("=== 服务列表: ${bleDevice.deviceAddress} ===\n")
         gatt.services.forEach { service ->
-            Log.d(TAG, "Service: ${service.uuid}")
+            sb.append("Service: ${service.uuid}\n")
             service.characteristics.forEach { char ->
                 val props = StringBuilder()
                 if ((char.properties and android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ) != 0) props.append("R ")
@@ -244,10 +246,11 @@ object HomerunBleGattHelper {
                 if ((char.properties and android.bluetooth.BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) props.append("N ")
                 if ((char.properties and android.bluetooth.BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) props.append("I ")
 
-                Log.d(TAG, "  -> Char: ${char.uuid} [$props]")
+                sb.append("  -> Char: ${char.uuid} [$props]\n")
             }
         }
-        Log.d(TAG, "=== Dump End ===")
+        sb.append("=== Dump End ===")
+        return sb.toString()
     }
 
     private fun dataToHex(data: ByteArray): String {

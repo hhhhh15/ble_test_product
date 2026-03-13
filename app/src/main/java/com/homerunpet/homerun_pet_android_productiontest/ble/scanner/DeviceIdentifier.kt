@@ -1,4 +1,4 @@
-package com.homerunpet.homerun_pet_android_productiontest.ble.scanner
+package com.homerunpet.v2.ble.scanner
 
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 
@@ -11,7 +11,7 @@ import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProt
 object DeviceIdentifier {
     
     // 霍曼自定义UUID
-    private const val HOMERUN_CUSTOM_UUID = "E0AC"
+    private const val HOMERUN_CUSTOM_UUID = "ACE0"
 
     /**
      * 识别设备支持的配网协议
@@ -19,7 +19,7 @@ object DeviceIdentifier {
      * 识别规则优先级：
      * 1. [EZIOT]:  包含萤石官方 Service UUID (0xFCCC)。
      * 2. [BLUFI]:  设备广播名称以 "HOMERUN" 开头 (忽略大小写)。
-     * 3. [CUSTOM]: 包含霍曼自定义 Service UUID (0xE0AC)。
+     * 3. [CUSTOM]: 包含霍曼自定义 Service UUID (0xACE0)。
      * 
      * @param name 设备名称
      * @param serviceUuids 服务UUID列表
@@ -30,7 +30,6 @@ object DeviceIdentifier {
     fun identifyProtocol(
         name: String,
         serviceUuids: List<String>,
-        manufacturerData: ByteArray?,
         manufacturerItems: Map<Int, ByteArray> = emptyMap()
     ): ProvisionProtocol {
         // 1. EZIOT (萤石/霍曼合作设备)
@@ -47,14 +46,27 @@ object DeviceIdentifier {
             }
         }
         
-        // 2. BLUFI (ESP BluFi / 霍曼旧设备)
+        // 2. 霍曼自定义协议 / BLUFI
         if (name.startsWith("HOMERUN", true)) {
             if (serviceUuids.contains(HOMERUN_CUSTOM_UUID)) {
-                return ProvisionProtocol.HOMERUN_CUSTOM
+                // 增加严格校验 (Company ID + Version + Type)
+                val homerunData = manufacturerItems[0xACE0]
+                if (homerunData != null && homerunData.isNotEmpty()) {
+                    val versionType = homerunData[0].toInt()
+                    // bit 0~3: 协议版本 (0b0001 = 1.0)
+                    val version = versionType and 0x0F
+                    // bit 4~7: 设备类型 (0b0001 = GATT)
+                    val type = (versionType shr 4) and 0x0F
+
+                    if (version == 1 && type == 1) {
+                         return ProvisionProtocol.HOMERUN_CUSTOM
+                    }
+                }
+                // 校验不通过，且包含 ACE0 UUID，视为无效设备或不做处理 (返回 UNKNOWN，避免误判为 BLUFI)
+                return ProvisionProtocol.UNKNOWN
             }
             return ProvisionProtocol.BLUFI
         }
-        
         return ProvisionProtocol.UNKNOWN
     }
     

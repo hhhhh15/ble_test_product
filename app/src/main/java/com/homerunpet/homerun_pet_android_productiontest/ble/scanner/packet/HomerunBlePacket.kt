@@ -34,7 +34,6 @@ data class HomerunBlePacket(
      * 配网标识 (Byte 1 的 Bit 4-6)
      * 0b000: Initial (首次配网)
      * 0b001: Modify (修改配网信息)
-     * 0b011: Reset (重置设备配网)
      */
     val provisionMode: Int,
 

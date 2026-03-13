@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <!-- 左侧中文名称 -->
+    <TextView
+        android:id="@+id/tvName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="自动铲便开关"
+        android:textSize="14sp"
+        android:textColor="#FF222222"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/layoutTags"
+        app:layout_constraintHorizontal_bias="0" />
+
+    <!-- 英文 key -->
+    <TextView
+        android:id="@+id/tvKey"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="auto_cover_switch"
+        android:textSize="12sp"
+        android:textColor="#FF888888"
+        app:layout_constraintTop_toBottomOf="@id/tvName"
+        app:layout_constraintStart_toStartOf="@id/tvName"
+        app:layout_constraintEnd_toEndOf="@id/tvName" />
+
+    <!-- 右侧标签区域：TYPE + RO/RW -->
+    <LinearLayout
+        android:id="@+id/layoutTags"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="@id/tvName"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            app:cardCornerRadius="4dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#FFE5E7EB"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#FFF3F4F6">
+
+            <TextView
+                android:id="@+id/tvType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="BOOL"
+                android:textColor="#FF6B7280"
+                android:textSize="10sp" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            android:layout_marginStart="6dp"
+            app:cardCornerRadius="4dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#FFE5E7EB"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#FFFFFFFF">
+
+            <TextView
+                android:id="@+id/tvRwTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="RW"
+                android:textColor="#FF9CA3AF"
+                android:textSize="10sp" />
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+    <!-- 底部一行：最左边是 '-'，右侧是 Switch -->
+
+    <!-- Switch 放最左侧，操作-放最右侧 -->
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switchValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/tvKey"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- 右侧操作位（小“-”，固定在最右边） -->
+    <TextView
+        android:id="@+id/tvAction"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginEnd="0dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="-"
+        android:textColor="#FF3B82F6"
+        android:textSize="18sp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        app:layout_constraintTop_toBottomOf="@id/tvKey"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

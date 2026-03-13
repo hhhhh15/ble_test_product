@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <Button
+        android:id="@+id/btnBack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="返回"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="测试报告查询"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/btnBack"
+        android:layout_marginStart="16dp"/>
+
+    <TextView
+        android:id="@+id/tvDeviceInfo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="当前设备信息"
+        android:textSize="14sp"
+        android:padding="8dp"
+        android:background="#EEEEEE"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <Button
+        android:id="@+id/btnUpgrade"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="升级固件"
+        app:layout_constraintTop_toBottomOf="@id/tvDeviceInfo"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <TextView
+        android:id="@+id/tvTestResultLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="测试结果"
+        android:textSize="14sp"
+        app:layout_constraintTop_toBottomOf="@id/btnUpgrade"
+        android:layout_marginTop="24dp"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <ScrollView
+        android:id="@+id/scrollResult"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#F5F5F5"
+        app:layout_constraintTop_toBottomOf="@id/tvTestResultLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/btnSave"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/tvTestResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="这里显示测试结果"
+            android:padding="12dp"/>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnSave"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="保存测试报告"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

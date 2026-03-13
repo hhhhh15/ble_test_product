@@ -34,6 +34,7 @@ class GlobalHeaderInterceptor : RequestInterceptor {
         request.setHeader("Content-Type", "application/json")
         // 厂测暂时用国内的
         //f73b2c3ca9031565e6d6b9337d762bd9
+        //
         request.setHeader("X-Application-Id", "4f6ec5e2607a9ec678530b9068381b38")
         request.setHeader("X-Client-Platform", "Android")
         request.setHeader("X-Client-OS-Version", DeviceUtils.getSDKVersionName())

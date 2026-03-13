@@ -1,4 +1,4 @@
-package com.homerunpet.v2.ble.provision.util
+package com.homerunpet.homerun_pet_android_productiontest.ble.provision.util
 
 import android.util.Log
 import javax.crypto.Cipher

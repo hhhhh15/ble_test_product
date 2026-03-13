@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <!-- 左侧中文名称 -->
+    <TextView
+        android:id="@+id/tvName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="工作状态"
+        android:textSize="14sp"
+        android:textColor="#FF222222"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/layoutTags"
+        app:layout_constraintHorizontal_bias="0" />
+
+    <!-- 右侧标签区域：TYPE + RO/RW -->
+    <LinearLayout
+        android:id="@+id/layoutTags"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="@id/tvName"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            app:cardCornerRadius="4dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#FFE5E7EB"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#FFF3F4F6">
+
+            <TextView
+                android:id="@+id/tvType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="ENUM"
+                android:textColor="#FF6B7280"
+                android:textSize="10sp" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="18dp"
+            android:layout_marginStart="6dp"
+            app:cardCornerRadius="4dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#FFE5E7EB"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#FFFFFFFF">
+
+            <TextView
+                android:id="@+id/tvRwTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="RO"
+                android:textColor="#FF9CA3AF"
+                android:textSize="10sp" />
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <!-- 左下角英文 key -->
+    <TextView
+        android:id="@+id/tvEnName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="status"
+        android:textSize="12sp"
+        android:textColor="#FF888888"
+        app:layout_constraintTop_toBottomOf="@id/tvName"
+        app:layout_constraintStart_toStartOf="@id/tvName"
+        app:layout_constraintEnd_toEndOf="@id/tvName" />
+
+    <!-- 下拉选择（Outlined 样式） -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilValue"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        app:boxBackgroundMode="outline"
+        app:boxStrokeColor="#FFE5E7EB"
+        app:boxStrokeWidth="1dp"
+        app:boxStrokeWidthFocused="1dp"
+        app:boxCornerRadiusTopStart="8dp"
+        app:boxCornerRadiusTopEnd="8dp"
+        app:boxCornerRadiusBottomStart="8dp"
+        app:boxCornerRadiusBottomEnd="8dp"
+        app:endIconMode="dropdown_menu"
+        app:layout_constraintTop_toBottomOf="@id/tvEnName"
+        app:layout_constraintEnd_toStartOf="@id/tvAction"
+        app:layout_constraintStart_toStartOf="parent">
+        <!-- 
+            是的，<com.google.android.material.textfield.MaterialAutoCompleteTextView>
+            实际上就是 Google Material 设计库推荐的 Spinner 升级实现，
+            一般搭配 TextInputLayout 使用。它的效果类似于 Spinner，但
+            有更好的美观样式和可自定义能力，并且支持下拉菜单的选项选择。
+            下面就是对应官方建议的“下拉菜单”用法。
+
+            如果你要的是像 Spinner 的下拉选择，在 Material Design 3 推荐用法就是这个组件，
+            名字里虽然有“AutoComplete”，但你可以不用它的输入自动补全，只用它的下拉选择能力即可。
+        -->
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/etValue"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="idle"
+            android:textSize="14sp"
+            android:singleLine="true" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- 右侧操作位（截图里的小“-”） -->
+    <TextView
+        android:id="@+id/tvAction"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="10dp"
+        android:gravity="center"
+        android:text="-"
+        android:textColor="#FF3B82F6"
+        android:textSize="18sp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/tilValue"
+        app:layout_constraintBottom_toBottomOf="@id/tilValue" />
+
+    <View
+        android:id="@+id/divider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="10dp"
+        android:background="#FFF2F2F2"
+        app:layout_constraintTop_toBottomOf="@id/tilValue"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

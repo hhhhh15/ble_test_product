@@ -1,5 +1,6 @@
 package com.homerunpet.homerun_pet_android_productiontest.base.net
 
+import android.util.Log
 import com.blankj.utilcode.util.EncryptUtils
 import okhttp3.*
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -70,20 +71,20 @@ class EncryptDataInterceptor(
         val canonicalRequest = "$httpMethod\n$canonicalizedURI\n$canonicalizedQueryString\n$signedHeadersString\n$contentSha256"
 
         // 7. 生成签名
-        val signature = hmacSHA256(canonicalRequest, appSecret)   //改了密钥
+        val signature = hmacSHA256(canonicalRequest, appSecret)
 
         // 打印调试日志
-//        Log.d(TAG, "================================= Signature Debug =================================")
-//        Log.d(TAG, "AppSecret: $appSecret")
-//        Log.d(TAG, "HTTPMethod: $httpMethod")
-//        Log.d(TAG, "CanonicalizedURI: $canonicalizedURI")
-//        Log.d(TAG, "CanonicalizedQueryString: $canonicalizedQueryString")
-//        Log.d(TAG, "Body String: $bodyString")
-//        Log.d(TAG, "ContentSha256: $contentSha256")
-//        Log.d(TAG, "SignedHeaders:\n$signedHeadersString")
-//        Log.d(TAG, "CanonicalRequest:\n$canonicalRequest")
-//        Log.d(TAG, "Signature: $signature")
-//        Log.d(TAG, "===================================================================================")
+        Log.d(TAG, "================================= Signature Debug =================================")
+        Log.d(TAG, "AppSecret: $appSecret")
+        Log.d(TAG, "HTTPMethod: $httpMethod")
+        Log.d(TAG, "CanonicalizedURI: $canonicalizedURI")
+        Log.d(TAG, "CanonicalizedQueryString: $canonicalizedQueryString")
+        Log.d(TAG, "Body String: $bodyString")
+        Log.d(TAG, "ContentSha256: $contentSha256")
+        Log.d(TAG, "SignedHeaders:\n$signedHeadersString")
+        Log.d(TAG, "CanonicalRequest:\n$canonicalRequest")
+        Log.d(TAG, "Signature: $signature")
+        Log.d(TAG, "===================================================================================")
 
         // 8. 构建新请求
 
@@ -101,6 +102,7 @@ class EncryptDataInterceptor(
 
         return chain.proceed(newRequestBuilder.build())
     }
+
 
     private fun getCanonicalizedQueryString(url: HttpUrl): String {
         if (url.querySize == 0) return ""

@@ -1,6 +1,7 @@
 package com.homerunpet.homerun_pet_android_productiontest
 
 import android.app.Application
+import android.util.Log
 import com.drake.net.NetConfig
 import com.drake.net.okhttp.setConverter
 import com.drake.net.okhttp.setDebug
@@ -14,11 +15,13 @@ import com.elvishew.xlog.printer.AndroidPrinter
 import com.elvishew.xlog.printer.file.FilePrinter
 import com.elvishew.xlog.printer.file.naming.ChangelessFileNameGenerator
 import com.hjq.toast.Toaster
+import com.homerunpet.homerun_pet_android_productiontest.base.net.AuthInterceptor
 import com.homerunpet.homerun_pet_android_productiontest.base.net.EncryptDataInterceptor
 import com.homerunpet.homerun_pet_android_productiontest.base.net.GlobalHeaderInterceptor
 import com.homerunpet.homerun_pet_android_productiontest.base.net.GsonConverter
 import com.homerunpet.homerun_pet_android_productiontest.base.net.HMNetErrorHandler
 import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
+import com.homerunpet.homerun_pet_android_productiontest.base.net.SpManager
 import com.safframework.http.interceptor.AndroidLoggingInterceptor
 import com.videogo.openapi.EZGlobalSDK
 import com.videogo.openapi.EZOpenSDK
@@ -53,6 +56,7 @@ open class MyApplication : Application() {
         Toaster.init(this)
         initXLog()
         initNet()
+        SpManager.init(this)
     }
 
     /**
@@ -83,7 +87,9 @@ open class MyApplication : Application() {
             writeTimeout(15, TimeUnit.SECONDS)
             setDebug(BuildConfig.DEBUG)
             trustSSLCertificate() // 信任所有证书
-            
+
+
+
             // 日志拦截器
             addInterceptor(
                 AndroidLoggingInterceptor.build(
@@ -97,12 +103,39 @@ open class MyApplication : Application() {
             setRequestInterceptor(GlobalHeaderInterceptor())
             // 加密拦截器
             // 8946644a4eb35e50f83f96dbb6403dab
+            //
             addInterceptor(EncryptDataInterceptor("bff382ebd7feee2badedae6eb66d7be2"))
+
+            //token验证拦截器
+            addInterceptor(AuthInterceptor())
             // 转换器与异常处理
+
+            addInterceptor { chain ->
+                val request = chain.request()
+                Log.e("TOKEN_DEBUG", "========== 请求详情 ==========")
+                Log.e("TOKEN_DEBUG", "URL: ${request.url}")
+                Log.e("TOKEN_DEBUG", "当前 SP 中的 Token: ${SpManager.token}")
+                Log.e("TOKEN_DEBUG", "========== 请求头 ==========")
+                request.headers.forEach { (name, value) ->
+                    Log.e("TOKEN_DEBUG", "$name: $value")
+                }
+                val authHeader = request.header("Authorization") ?: request.header("token")
+                Log.e("TOKEN_DEBUG", if (!authHeader.isNullOrBlank()) {
+                    "✅ Token 存在: [$authHeader]"
+                } else {
+                    "❌ Token 不存在或为空！实际值: [$authHeader]"
+                })
+
+                chain.proceed(request)
+            }
             setConverter(GsonConverter())
             setErrorHandler(HMNetErrorHandler())
+
+
         }
     }
+
+
 
 }
 

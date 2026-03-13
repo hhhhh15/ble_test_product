@@ -1,4 +1,4 @@
-package com.homerunpet.v2.ble.provision.util
+package com.homerunpet.homerun_pet_android_productiontest.ble.provision.util
 
 /**
  * 对应数据传输协议包结构
@@ -85,17 +85,23 @@ object HomerunBlePacketUtils {
     }
 
     /**
+     * 协议层开销 (字节):
+     * 3 (ATT Header) + 2 (Preamble) + 1 (Length) + 2 (Control) + 1 (CRC) = 9
+     */
+    const val MTU_OVERHEAD = 9
+
+    /**
      * 封包: 将加密后的 ByteArray 切分为符合协议的分包列表
      * 结构: HEAD(CC 33) + LEN(1) + CTRL(2) + PAYLOAD + CRC(1)
      *
      * 关于 Payload 长度计算:
      * 场景 A (高效模式 - 默认):
      * - BLE MTU = 247 字节
-     * - Max Payload = 247 - 3(ATT) - 6(Proto) = 238 字节
+     * - Max Payload = 247 - MTU_OVERHEAD = 238 字节
      * 
      * 场景 B (兼容模式/文档示例):
      * - BLE MTU = 64 字节
-     * - Max Payload = 64 - 3(ATT) - 6(Proto) = 55 字节
+     * - Max Payload = 64 - MTU_OVERHEAD = 55 字节
      *
      * 示例 (场景 B, maxPayload=55):
      * Input (128 bytes): 51381CDC927C69D09C8087D4E08D1967DB2FA7842E926BC346795CBA92234E102A3F43F2232D0B13037EA3433421E9C47EF5AFA5FBF807237589EF9A8CB2C357B3EEAFD22AEE5EFA3EF43FE388ADDEAC0350335AF12FDBD0218BD8603A7664065B40BE643341D81C5AB0EC808B40174FA3A6BEE8C82BF43B2AD22A75C03505F7
@@ -111,9 +117,9 @@ object HomerunBlePacketUtils {
      *   (Len:15, Ctrl:0463, Pay:18 bytes, CRC:6A)
      *
      * @param data 加密后的完整数据
-     * @param maxPayload 单包最大载荷 (默认 238, 适配 MTU 247)
+     * @param maxPayload 单包最大载荷 (应由调用者根据当前协商的 MTU 动态计算传入，例如 MTU - 9)
      */
-    fun packData(data: ByteArray, maxPayload: Int = 238): List<ByteArray> {
+    fun packData(data: ByteArray, maxPayload: Int): List<ByteArray> {
         // 计算总帧数
         val totalFrames = (data.size + maxPayload - 1) / maxPayload
         val frames = if (totalFrames == 0) 1 else totalFrames

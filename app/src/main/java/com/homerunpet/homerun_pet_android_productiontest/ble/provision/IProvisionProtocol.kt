@@ -29,6 +29,12 @@ interface IProvisionProtocol {
     fun getProduct(): Product?
     
     /**
+     * 设置期望的 MTU 大小 (可选)
+     * 默认不执行任何操作，由各协议自行实现
+     */
+    fun setTargetMtu(mtu: Int) {}
+    
+    /**
      * 第一步：连接设备
      * 需先调用 setProduct
      */
@@ -66,9 +72,9 @@ interface IProvisionProtocol {
      *         - Failure: 发生错误
      *         - Complete(Empty): 暂未成功，需继续轮询
      */
-    fun checkBindStatus(deviceSerial: String): Observable<ProvisionEvent> {
-        return Observable.error(UnsupportedOperationException("Not implemented"))
-    }
+//    fun checkBindStatus(deviceSerial: String): Observable<ProvisionEvent> {
+//        return Observable.error(UnsupportedOperationException("Not implemented"))
+//    }
 
     /**
      * 第五步：检查设备在线状态

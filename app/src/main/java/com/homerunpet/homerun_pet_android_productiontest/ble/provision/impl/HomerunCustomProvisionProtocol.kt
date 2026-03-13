@@ -7,23 +7,27 @@ import com.bhm.ble.BleManager
 import com.bhm.ble.device.BleDevice
 import com.drake.net.Get
 import com.drake.net.utils.scopeNet
-import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
+//import com.homerunpet.homerun_pet_android_productiontest.common.SharedPreferencesUtils
+//import com.homerunpet.homerun_pet_android_productiontest.common.StaticDataUtils
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.DeviceInfoDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.DevicesProductsDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.IProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionEvent
-import com.homerunpet.v2.ble.provision.util.HomerunBleCipher
-import com.homerunpet.v2.ble.provision.util.HomerunBleGattHelper
-import com.homerunpet.v2.ble.provision.util.HomerunBlePacketUtils
+import com.homerunpet.homerun_pet_android_productiontest.ble.provision.util.HomerunBleCipher
+import com.homerunpet.homerun_pet_android_productiontest.ble.provision.util.HomerunBleGattHelper
+import com.homerunpet.homerun_pet_android_productiontest.ble.provision.util.HomerunBlePacketUtils
+import com.homerunpet.homerun_pet_android_productiontest.common.ext.saveDistributionNetworkLog
+import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
+//import com.homerunpet.homerun_pet_android_productiontest.distribution_network.constant.DeviceNetErrorManager
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.ObservableEmitter
 import io.reactivex.rxjava3.schedulers.Schedulers
 import io.reactivex.rxjava3.subjects.PublishSubject
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.TreeMap
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 
 /**
  * 霍曼自研配网协议实现类
@@ -38,20 +42,18 @@ class HomerunCustomProvisionProtocol(
     // region ---------------- 常量与成员变量 ----------------
 
     companion object {
-        private const val TAG = "HomerunProvision"
 
         // 服务 UUID
         const val SERVICE_UUID = "0000ace0-0000-1000-8000-00805f9b34fb"
 
         // 特征值 UUID 定义
-        // Read - 获取设备所属用户 ID
-        const val CHARACTERISTIC_USER_ID_UUID = "0000fc01-0000-1000-8000-00805f9b34fb"
-
-        // Write/Indicate - 恢复设备出厂设置 (Indicate 用于接收结果)
-        const val CHARACTERISTIC_FACTORY_RESET_UUID = "0000fc02-0000-1000-8000-00805f9b34fb"
 
         // Write/Indicate - 配网信息下发与状态监听
-        const val CHARACTERISTIC_CONFIG_UUID = "0000fc04-0000-1000-8000-00805f9b34fb"
+        const val CHARACTERISTIC_CONFIG_UUID = "0000fc01-0000-1000-8000-00805f9b34fb"
+
+        // Read - 获取设备所属用户 ID （不用校验了）
+        const val CHARACTERISTIC_USER_ID_UUID = "0000fc02-0000-1000-8000-00805f9b34fb"
+
     }
 
     // 当前操作的产品信息
@@ -64,11 +66,14 @@ class HomerunCustomProvisionProtocol(
     private var isDeviceDetailFetched = false
     private var deviceDetail: DevicesProductsDetailBean? = null
 
-    // 连接开始时间 (秒级时间戳)，用于校验设备上线时间
-    private var connectionStartTime: Long = 0L
-
     // 接收包缓存: MsgID -> (Seq -> Payload)
     private val packetBuffer = ConcurrentHashMap<Int, TreeMap<Int, ByteArray>>()
+
+    // MTU 协商大小，默认 512 (可通过外部修改)
+    private var targetMtu: Int = 512
+
+    // 配网随机验证码
+    private var provisionRandomCode: String = ""
 
     // endregion
 
@@ -76,22 +81,47 @@ class HomerunCustomProvisionProtocol(
 
     override fun setProduct(product: Product) {
         this.currentProduct = product
+
+        Log.d("Provision", "HomerunCustomProvisionProtocol.setProduct: product=$product")
+        Log.d("Provision", "MAC=${product.hmFastBleDevice?.mac}")
+        Log.d("deviceSerial", "deviceSerial=${product.deviceSerial}和设备的${product.hmFastBleDevice?.deviceSerial}")
     }
 
     override fun getProduct(): Product? {
         return currentProduct
     }
 
+    override fun setTargetMtu(mtu: Int) {
+        this.targetMtu = mtu
+    }
+
     /**
-     * 连接设备
+     * 第一步：连接设备
      * 1. 强制断开旧连接
      * 2. 发起新连接
      * 3. 打印服务列表 (调试用)
      */
     override fun connect(): Observable<ProvisionEvent> {
-        val product = currentProduct ?: return Observable.error(Throwable("未设置产品信息"))
-        val mac = product.address ?: return Observable.error(Throwable("设备MAC地址为空"))
-        val productKey = product.product_key ?: return Observable.error(Throwable("产品Key为空"))
+        val product = currentProduct
+        if (product == null) {
+            saveDistributionNetworkLog(
+                product = null,
+                stepName = "蓝牙连接",
+                errorCode = "DEVICE_BLE_CONNECT_FAIL",
+                customData = "未设置产品信息"
+            )
+            return Observable.error(Throwable("未设置产品信息"))
+        }
+        val mac = product.address
+        if (mac.isNullOrEmpty()) {
+            saveDistributionNetworkLog(
+                product = currentProduct,
+                stepName = "蓝牙连接",
+                errorCode = "DEVICE_BLE_CONNECT_FAIL",
+                customData = "设备MAC地址为空"
+            )
+            return Observable.error(Throwable("设备MAC地址为空"))
+        }
 
         // 每次连接前重置详情状态
         isDeviceDetailFetched = false
@@ -99,79 +129,73 @@ class HomerunCustomProvisionProtocol(
 
         // 1. 先执行蓝牙连接
         return Observable.create<Boolean> { emitter ->
-            HmLog("[连接] 正在连接设备: $mac")
             // 确保断开之前的连接
             BleManager.get().disConnect(mac)
             Thread.sleep(100)
             connectBleDevice(mac, emitter)
         }
-            .flatMap { connectSuccess ->
-                if (connectSuccess) {
-                    // 记录连接成功的本地时间 (秒级，与接口字段单位一致)
-                    connectionStartTime = System.currentTimeMillis() / 1000
-                    HmLog("[连接] 记录连接启动时间: $connectionStartTime")
-
-                    // 2. 连接成功后，获取设备详情
-                    fetchDeviceDetail(productKey).map { detailSuccess ->
-                        if (!detailSuccess) {
-                            HmLog("[连接] 获取设备详情失败，配网前将再次尝试")
-                        }
-                        true // 返回 true 表示连接成功，允许继续后续流程
-                    }
-                } else {
-                    Observable.just(false)
-                }
-            }
             .flatMap { success ->
                 if (success) {
-                    val bleDevice = connectedBleDevice ?: return@flatMap Observable.error<ProvisionEvent>(Throwable("Unexpected: Device null"))
+                    val bleDevice = connectedBleDevice
+                    if (bleDevice == null) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "蓝牙连接",
+                            errorCode = "DEVICE_BLE_CONNECT_FAIL",
+                            customData = "连接异常: 设备对象为空"
+                        )
+                        return@flatMap Observable.error<ProvisionEvent>(Throwable("连接异常: 设备对象为空"))
+                    }
 
-                    HmLog("[连接] 连接成功，开始协商 MTU...")
-                    HomerunBleGattHelper.setMtu(bleDevice, 247)
-                        .map { mtu ->
-                            HmLog("[连接] MTU协商完成: $mtu, 准备服务Dump...")
-                            HomerunBleGattHelper.dumpGattServices(bleDevice)
-                            ProvisionEvent.Success(mac) as ProvisionEvent
+                    HomerunBleGattHelper.setMtu(bleDevice, targetMtu)
+                        .onErrorResumeNext { error ->
+                            saveDistributionNetworkLog(
+                                product = currentProduct,
+                                stepName = "获取设备信息",
+                                errorCode = "NEGOTIATE_MTU_FAIL",
+                                customData = "MTU协商失败: $targetMtu, ${error.message}"
+                            )
+                            Observable.error(error)
+                        }
+                        .flatMap { mtu ->
+                            val serviceDump = HomerunBleGattHelper.dumpGattServices(bleDevice)
+                            saveDistributionNetworkLog(
+                                product = currentProduct,
+                                stepName = "蓝牙连接",
+                                customData = "MTU协商成功: $mtu, Services:\n$serviceDump"
+                            )
+                            saveDistributionNetworkLog(
+                                product = currentProduct,
+                                stepName = "蓝牙连接",
+                                customData = "首次配网模式，完成初始化"
+                            )
+                            Observable.just(ProvisionEvent.Success(mac) as ProvisionEvent)
+                            // 根据模式决定是否权鉴
+                            // if (product.hmFastBleDevice?.provisionMode == 1) {
+                            //     saveDistributionNetworkLog(
+                            //         product = currentProduct,
+                            //         stepName = "蓝牙连接",
+                            //         customData = "修改模式，开始所有权权鉴 (Read FC01)..."
+                            //     )
+                            //     modifyNetwork()
+                            // } else {
+                            //     saveDistributionNetworkLog(
+                            //         product = currentProduct,
+                            //         stepName = "蓝牙连接",
+                            //         customData = "首次配网模式，完成初始化"
+                            //     )
+                            //     Observable.just(ProvisionEvent.Success(mac) as ProvisionEvent)
+                            // }
                         }
                 } else {
-                    HmLog("[连接] 连接失败")
                     Observable.error(Throwable("蓝牙连接失败"))
                 }
             }
             .subscribeOn(Schedulers.io())
     }
 
-    private fun fetchDeviceDetail(productKey: String): Observable<Boolean> {
-        return Observable.create { emitter ->
-            val scope = scopeNet {
-                try {//这里调用了api
-                    val detail = Get<DevicesProductsDetailBean?>(HmApi.getDeviceDetail(productKey)).await()
-                    if (!emitter.isDisposed) {
-                        if (detail != null) {
-                            HmLog("[详情] 获取设备详情成功: $productKey")
-                            deviceDetail = detail
-                            isDeviceDetailFetched = true
-                            emitter.onNext(true)
-                        } else {
-                            HmLog("[详情] 获取设备详情返回 Null: $productKey")
-                            emitter.onNext(false)
-                        }
-                    }
-                } catch (e: Exception) {
-                    HmLog("[详情] 获取设备详情异常: ${e.message}")
-                    if (!emitter.isDisposed) emitter.onNext(false)
-                }
-                if (!emitter.isDisposed) emitter.onComplete()
-            }
-            emitter.setCancellable {
-                HmLog("[详情] 外部取消获取详情 - $productKey")
-                scope.cancel()
-            }
-        }
-    }
-
     /**
-     * 执行首次配网流程
+     * 第二步：配置WiFi
      *
      * 流程:
      * 1. 密钥准备 (Secret -> AES Key).
@@ -180,114 +204,184 @@ class HomerunCustomProvisionProtocol(
      */
     override fun configureWifi(ssid: String, password: String, extraParams: Map<String, Any>?): Observable<ProvisionEvent> {
         return Observable.defer {
-            val productKey = currentProduct?.product_key ?: return@defer Observable.error(Throwable("产品Key为空"))
+            val productKey = currentProduct?.product_key
+            if (productKey.isNullOrEmpty()) {
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "发送配网数据",
+                    errorCode = "DEVICE_BLE_CONFIG_FUNC_FAIL",
+                    customData = "产品Key为空"
+                )
+                return@defer Observable.error(Throwable("产品Key为空"))
+            }
 
-            // 如果之前获取详情失败了，这里再尝试一次
-            val ensureDetailObservable = if (!isDeviceDetailFetched) {
-                HmLog("[配网] 详情未获取，尝试重新获取...")
-                fetchDeviceDetail(productKey).flatMap { success ->
+            fetchProductsByKey(productKey)
+                .flatMap { success ->
                     if (success) {
                         Observable.just(Unit)
                     } else {
-                        HmLog("[配网] 再次尝试获取详情依然失败，配网流程终止")
-                        Observable.error(Throwable("获取设备密钥详情失败"))
+                        Observable.error(Throwable("查询产品信息失败"))
                     }
                 }
-            } else {
-                Observable.just(Unit)
-            }
+                .flatMap {
+                    val bleDevice = connectedBleDevice
+                    if (bleDevice == null) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            errorCode = "DEVICE_BLE_CONNECT_FAIL",
+                            customData = "设备未连接"
+                        )
+                        return@flatMap Observable.error(Throwable("设备未连接"))
+                    }
 
-            ensureDetailObservable.flatMap {
-                // 增加缓冲时间，等待连接稳定/MTU协商完成
-                try {
-                    Thread.sleep(500)
-                } catch (ignored: Exception) {
+//                    val uid = SharedPreferencesUtils.getStringValue(StaticDataUtils.curUserId)
+                    val uid = "00000000" // 字符串占位
+
+                    // 必须从详情中获取 Brokers
+                    val detailBrokers = deviceDetail?.brokers
+                    if (detailBrokers.isNullOrEmpty()) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            errorCode = "DEVICE_BLE_CONFIG_FUNC_FAIL",
+                            customData = "Brokers 为空，无法配网"
+                        )
+                        return@flatMap Observable.error(Throwable("Brokers 为空，无法配网"))
+                    }
+                    val brokers = JSONArray(detailBrokers).toString()
+
+                    // 生成随机 Code 用于校验
+                    provisionRandomCode = (100000..999999).random().toString()
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        customData = "流程启动: SSID=$ssid, 随机码=$provisionRandomCode"
+                    )
+
+                    // 从详情中获取 Secret
+                    val secretHex = deviceDetail?.product_secret
+                    if (secretHex.isNullOrEmpty()) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            errorCode = "DEVICE_BLE_CONFIG_FUNC_FAIL",
+                            customData = "设备密钥为空，无法配网"
+                        )
+                        return@flatMap Observable.error(Throwable("设备密钥为空，无法配网"))
+                    }
+                    val aesKey = HomerunBleCipher.generateKey(secretHex)
+
+                    val sendTrigger = PublishSubject.create<ProvisionEvent>()
+
+                    // 首次配网：直接开始监听并发送
+                    val listenObservable = waitForProvisionResponse(aesKey) {
+                        sendProvisionInfo(bleDevice, ssid, password, uid, brokers, provisionRandomCode, aesKey)
+                            .subscribe(sendTrigger)
+                    }
+
+                    Observable.merge(listenObservable, sendTrigger)
                 }
-
-                val bleDevice = connectedBleDevice ?: return@flatMap Observable.error(Throwable("设备未连接"))
-                currentProduct ?: return@flatMap Observable.error(Throwable("未设置产品信息"))
-
-                // TODO: 登录后获取 
-                val uid = ""
-                // 必须从详情中获取 Brokers
-                val detailBrokers = deviceDetail?.brokers
-                if (detailBrokers.isNullOrEmpty()) {
-                    HmLog("[配网] 错误: Brokers 为空，无法配网")
-                    return@flatMap Observable.error(Throwable("服务器地址配置缺失"))
-                }
-                val brokers = JSONArray(detailBrokers).toString()
-
-                // 生成随机 Code 用于校验
-                val randomCode = (100000..999999).random().toString()
-                HmLog("[配网] 流程启动: SSID=$ssid, Code=$randomCode")
-
-                // 必须从详情中获取 Secret
-                val secretHex = deviceDetail?.product_secret
-                if (secretHex.isNullOrEmpty()) {
-                    HmLog("[配网] 错误: 设备密钥为空，无法配网")
-                    return@flatMap Observable.error(Throwable("设备密钥缺失"))
-                }
-                val aesKey = HomerunBleCipher.generateKey(secretHex)
-
-                val sendTrigger = PublishSubject.create<ProvisionEvent>()
-
-                // 首次配网：直接开始监听并发送
-                val listenObservable = waitForProvisionResponse(aesKey) {
-                    HmLog("[配网] 监听就绪，开始发送配置数据...")
-                    sendProvisionInfo(bleDevice, ssid, password, uid, brokers, randomCode, aesKey)
-                        .subscribe(sendTrigger)
-                }
-
-                Observable.merge(listenObservable, sendTrigger)
-            }
-        }
-            .subscribeOn(Schedulers.io())
+        }.subscribeOn(Schedulers.io())
     }
 
-    /**
-     * 查询配网信息和设备状态（自研的话默认成功，合并到checkOnlineStatus一个方法中）
-     */
-    override fun checkBindStatus(deviceSerial: String): Observable<ProvisionEvent> {
-        HmLog("[查询] 检查绑定状态(Mock): 默认成功")
-        return Observable.just(ProvisionEvent.Success(deviceSerial, "绑定成功"))
-    }
-
-    /**
-     * 查询配网信息和设备状态 (使用设备详情校验上线).如果设备配网成功的话，这个方法是从云端获取到数据的
-     */
-    override fun checkOnlineStatus(deviceSerial: String): Observable<ProvisionEvent> {
-        return fetchDeviceInfoDetail(deviceSerial)
-            .flatMap { detail ->
-                val isOnline = detail.is_online ?: false
-                val lastOnlineTime = detail.last_online_time ?: 0
-
-                HmLog("[查询] 设备状态: isOnline=$isOnline, lastOnline=$lastOnlineTime, startBound=$connectionStartTime")
-
-                // 条件：1. 在线 2. 最后上线时间 >= 本次配网连接启动时间
-                if (isOnline && lastOnlineTime.toLong() >= connectionStartTime) {
-                    HmLog("[查询] 设备已真正上线 (新激活)")
-                    Observable.just(ProvisionEvent.Success(deviceSerial, "设备已上线", detail))
-                } else {
-                    HmLog("[查询] 设备尚未上线或仍为旧状态")
-                    Observable.empty<ProvisionEvent>()
-                }
-            }
-            .subscribeOn(Schedulers.io())
-    }
-
-    private fun fetchDeviceInfoDetail(deviceSerial: String): Observable<DeviceInfoDetailBean> {
+    private fun fetchProductsByKey(productKey: String): Observable<Boolean> {
         return Observable.create { emitter ->
             val scope = scopeNet {
                 try {
-                    val detail = Get<DeviceInfoDetailBean?>(HmApi.getDeviceInfoDetail(deviceSerial)).await()
-                    if (!emitter.isDisposed && detail != null) {
-                        emitter.onNext(detail)
+                    val detail = Get<DevicesProductsDetailBean?>(HmApi.getProductsByKey(productKey)).await()
+                    Log.d("dddd", "fetchProductsByKey: $detail")
+                    if (!emitter.isDisposed) {
+                        if (detail != null) {
+                            saveDistributionNetworkLog(
+                                product = currentProduct,
+                                stepName = "发送配网数据",
+                                customData = "获取设备详情成功: $productKey"
+                            )
+                            deviceDetail = detail
+                            isDeviceDetailFetched = true
+                            emitter.onNext(true)
+                        } else {
+                            saveDistributionNetworkLog(
+                                product = currentProduct,
+                                stepName = "获取设备信息",
+                                errorCode = "QUERY_DEVICE_PRODUCT_FAIL",
+                                customData = "获取设备详情返回 Null: $productKey"
+                            )
+                            emitter.onNext(false)
+                        }
                     }
                 } catch (e: Exception) {
-                    HmLog("[详情] 获取设备信息详情异常: ${e.message}")
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "获取设备信息",
+                        errorCode = "QUERY_DEVICE_PRODUCT_FAIL",
+                        customData = "获取设备详情异常: ${e.message}"
+                    )
+                    if (!emitter.isDisposed) emitter.onNext(false)
                 }
-                if (!emitter.isDisposed) {
-                    emitter.onComplete()
+                if (!emitter.isDisposed) emitter.onComplete()
+            }
+            emitter.setCancellable {
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "获取设备信息",
+                    customData = "获取设备详情被取消: $productKey"
+                )
+                scope.cancel()
+            }
+        }
+    }
+
+//    /**
+//     * 查询配网信息和设备状态
+//     */
+//    override fun checkBindStatus(deviceSerial: String): Observable<ProvisionEvent> {
+//        HmLog("[查询] 检查绑定状态(Mock): 默认成功")
+//        return Observable.just(ProvisionEvent.Success(deviceSerial, "绑定成功"))
+//    }
+
+    /**
+     * 查询配网信息和设备状态 (使用设备详情校验上线)
+     */
+    override fun checkOnlineStatus(deviceSerial: String): Observable<ProvisionEvent> {
+        return fetchProvisionStatus(deviceSerial)
+            .flatMap { detail ->
+                saveDistributionNetworkLog(currentProduct, "查询设备在线状态", customData = "设备已上线")
+                //将detail包装成ProvisionEvent对象，所以connectfragment订阅的数据是ProvisionEvent
+                Observable.just(ProvisionEvent.Success(deviceSerial, "设备已上线", detail) as ProvisionEvent)
+            }
+            .doOnError { e ->
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "查询设备在线状态",
+                    errorCode = "DEVICE_NOT_ONLINE",
+                    customData = e.message.toString()
+                )
+            }
+            .subscribeOn(Schedulers.io())
+    }
+
+    private fun fetchProvisionStatus(deviceSerial: String): Observable<DeviceInfoDetailBean> {
+        return Observable.create { emitter ->
+            val scope = scopeNet {
+                try {
+                    val detail = Get<DeviceInfoDetailBean?>(HmApi.getDeviceProvisionStatus(deviceSerial)) {
+                        //给当前这次 GET 请求的 URL 添加一个 query 参数
+                        setQuery("provision_code", provisionRandomCode)
+                    }.await()
+                    if (!emitter.isDisposed) {
+                        if (detail != null && detail.device_secret.isNullOrEmpty().not()) {
+                            emitter.onNext(detail)
+                            emitter.onComplete()
+                        } else {
+                            emitter.tryOnError(Throwable("设备不在线"))
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (!emitter.isDisposed) {
+                        emitter.tryOnError(Throwable("设备不在线"))
+                    }
                 }
             }
             emitter.setCancellable {
@@ -313,63 +407,59 @@ class HomerunCustomProvisionProtocol(
     // region ---------------- 修改/重置配网 (Public Methods) ----------------
 
     /**
-     * 修改/重置配网 - 第一步
+     * 修改配网 - 第一步 (所有权校验)
      *
-     * * 独立流程，包含设备归属权校验。
-     * * 校验成功后：
-     *   - `isReset=false`: 仅返回成功，后续由外部调用 [configureWifi] 修改网络。
-     *   - `isReset=true`: 自动执行 [performFactoryReset] 发送重置指令。
+     * 在对已绑定设备进行 WiFi 修改前，必须先校验归属权。
+     * 该方法会读取硬件 UID 并与当前登录 UID 进行比对。
      *
-     * @param isReset true: 重置设备; false: 修改网络
+     * @return 校验结果事件流
      */
-    fun modifyNetwork(isReset: Boolean = false): Observable<ProvisionEvent> {
+    private fun modifyNetwork(): Observable<ProvisionEvent> {
         return Observable.defer {
-            val bleDevice = connectedBleDevice ?: return@defer Observable.error(Throwable("设备未连接"))
-            val productKey = currentProduct?.product_key ?: return@defer Observable.error(Throwable("产品Key为空"))
+            val bleDevice = connectedBleDevice ?: return@defer Observable.error<ProvisionEvent>(Throwable("设备未连接"))
+            val productKey = currentProduct?.product_key ?: return@defer Observable.error<ProvisionEvent>(Throwable("产品Key为空"))
 
-            // 同样确保详情已获取
-            val ensureDetailObservable = if (!isDeviceDetailFetched) {
-                HmLog("[修改] 详情未获取，尝试重新获取...")
-                fetchDeviceDetail(productKey).flatMap { success ->
-                    if (success) {
-                        Observable.just(Unit)
-                    } else {
-                        HmLog("[修改] 再次尝试获取详情依然失败")
-                        Observable.error(Throwable("获取设备密钥详情失败"))
-                    }
-                }
-            } else {
-                Observable.just(Unit)
-            }
-
-            ensureDetailObservable.flatMap {
-                // TODO: 登录后获取 
-                val uid = ""
-
+            // 1. 确保产品密钥详情已获取 (用于权鉴解密)
+            fetchProductsByKey(productKey).flatMap { success ->
+                if (success) Observable.just(Unit)
+                else Observable.error(Throwable("获取设备密钥详情失败"))
+            }.flatMap {
+//                val uid = SharedPreferencesUtils.getStringValue(StaticDataUtils.curUserId)
+                val  uid ="0000000"  //占位符的
                 val secretHex = deviceDetail?.product_secret
                 if (secretHex.isNullOrEmpty()) {
-                    HmLog("[修改] 错误: 设备密钥为空")
-                    return@flatMap Observable.error(Throwable("设备密钥缺失"))
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        errorCode = "DEVICE_BLE_CONFIG_FUNC_FAIL",
+                        customData = "设备密钥为空，无法配网"
+                    )
+                    return@flatMap Observable.error<ProvisionEvent>(Throwable("设备密钥为空，无法配网"))
                 }
                 val aesKey = HomerunBleCipher.generateKey(secretHex)
 
-                // 先校验归属权
+                // 2. 核心: 校验设备归属权 (Read FC01)
                 verifyDeviceOwner(bleDevice, aesKey, uid)
                     .flatMap {
-                        // 校验通过
-                        if (isReset) {
-                            // 重置配网
-                            HmLog("[重置] 归属校验通过，执行重置指令(FC02)...")
-                            performFactoryReset(bleDevice, aesKey, uid)
-                        } else {
-                            HmLog("[修改] 归属校验通过，流程结束 (等待外部调用配网)")
-                            Observable.just(
-                                ProvisionEvent.Success(
-                                    bleDevice.deviceAddress.orEmpty(),
-                                    "校验通过(修改)"
-                                ) as ProvisionEvent
-                            )
-                        }
+                        // 校验通过: 说明当前用户是设备所有者，允许后续修改网络
+                        // 校验通过: 说明当前用户是设备所有者，允许后续修改网络
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            customData = "归属校验通过，准备修改网络"
+                        )
+                        val mac = bleDevice.deviceAddress.orEmpty()
+                        Observable.just(ProvisionEvent.Success(mac, "归属校验通过，可进行下一步配网")) as Observable<ProvisionEvent>
+                    }
+                    .onErrorResumeNext { error ->
+                        // 权鉴失败 (如 UID 不匹配) 或蓝牙通信异常
+                        // 权鉴失败 (如 UID 不匹配) 或蓝牙通信异常
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            customData = "校验失败: ${error.message}"
+                        )
+                        Observable.just(ProvisionEvent.Failure(4001, error.message ?: "权限校验失败"))
                     }
             }
         }.subscribeOn(Schedulers.io())
@@ -382,13 +472,13 @@ class HomerunCustomProvisionProtocol(
     /**
      * 连接逻辑封装
      */
-    private fun connectBleDevice(mac: String, emitter: io.reactivex.rxjava3.core.ObservableEmitter<Boolean>) {
+    private fun connectBleDevice(mac: String, emitter: ObservableEmitter<Boolean>) {
         BleManager.get().connect(mac) {
             onConnectStart {
-                HmLog("[连接] 蓝牙连接开始: $mac")
+
             }
             onConnectSuccess { bleDevice, _ ->
-                HmLog("[连接] 蓝牙连接成功: $mac")
+                saveDistributionNetworkLog(currentProduct, "蓝牙连接")
                 connectedBleDevice = bleDevice
                 if (!emitter.isDisposed) {
                     emitter.onNext(true)
@@ -396,17 +486,27 @@ class HomerunCustomProvisionProtocol(
                 }
             }
             onConnectFail { _, exception ->
-                HmLog("[连接] 蓝牙连接失败: $mac, 原因: $exception")
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "蓝牙连接",
+                    errorCode = "DEVICE_BLE_CONNECT_FAIL",
+                    customData = "蓝牙连接失败: $mac, 原因: $exception"
+                )
                 if (!emitter.isDisposed) {
-                    emitter.tryOnError(Throwable("连接失败: $exception"))
+                    emitter.tryOnError(Throwable("蓝牙连接失败: $mac, 原因: $exception"))
                 }
             }
             onDisConnecting { _, _, _, _ ->
-                HmLog("[连接] 蓝牙正在断开: $mac")
+
             }
             onDisConnected { _, _, _, _ ->
-                HmLog("[连接] 蓝牙已断开: $mac")
                 connectedBleDevice = null
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "获取设备信息",
+                    errorCode = "BLE_DEVICE_DISCONNECT_IN_MIDWAY",
+                    customData = "蓝牙连接中途断开"
+                )
             }
         }
     }
@@ -420,112 +520,135 @@ class HomerunCustomProvisionProtocol(
      */
     private fun verifyDeviceOwner(bleDevice: BleDevice, aesKey: ByteArray, currentUid: String): Observable<Unit> {
         return HomerunBleGattHelper.read(bleDevice, SERVICE_UUID, CHARACTERISTIC_USER_ID_UUID)
+            .onErrorResumeNext { error ->
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "获取设备信息",
+                    errorCode = "DEVICE_BLE_GET_DEVICE_FAIL",
+                    customData = "读取鉴权特征值失败: ${error.message}"
+                )
+                Observable.error(error)
+            }
             .flatMap { bytes ->
                 try {
-                    // 解密
-                    val decrypted = HomerunBleCipher.decrypt(bytes, aesKey)
-                    // 去除可能的填充或空格
-                    val deviceUid = String(decrypted, Charsets.UTF_8).trim()
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        customData = "鉴权: 收到原始数据(Hex): ${bytes.joinToString("") { "%02X".format(it) }}"
+                    )
 
-                    HmLog("[鉴权] 校验归属: Device=$deviceUid, App=$currentUid")
+                    // 1. 解析协议包
+                    // 注意：这里我们使用临时的 buffer 逻辑，因为 verify 通常是单次交互
+                    val parseResult = HomerunBlePacketUtils.parsePacket(bytes)
+                    if (parseResult.packets.isEmpty()) {
+                        throw IllegalArgumentException("解析数据包失败: 格式错误或数据不完整")
+                    }
+
+                    // 2. 组包逻辑 (简化版，针对单次 Read 返回的一组包)
+                    // 假设 Read 返回的数据包含完整的一组帧 (Frames)
+                    // 我们找到第一个包，确定 MsgID 和 Frames，然后检查是否收齐
+                    val distinctMsgIds = parseResult.packets.map { it.msgId }.distinct()
+                    if (distinctMsgIds.size > 1) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            customData = "警告: 收到多个 MsgID 的包，仅处理第一个"
+                        )
+                    }
+                    val msgId = distinctMsgIds.first()
+
+                    // 筛选出该 MsgID 的所有帧
+                    val frames = parseResult.packets.filter { it.msgId == msgId }
+                    val totalFrames = frames.first().frames // 协议头里声明的总帧数
+
+                    if (frames.size < totalFrames) {
+                        throw IllegalArgumentException("数据不完整: 需 $totalFrames 帧，实际收到 ${frames.size} 帧")
+                    }
+
+                    // 按 Seq 排序并拼接
+                    val sortedFrames = frames.sortedBy { it.seq }
+                    val totalSize = sortedFrames.sumOf { it.payload.size }
+                    val fullPayload = ByteArray(totalSize)
+                    var offset = 0
+                    for (frame in sortedFrames) {
+                        System.arraycopy(frame.payload, 0, fullPayload, offset, frame.payload.size)
+                        offset += frame.payload.size
+                    }
+
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        customData = "鉴权: 组包完成(MsgID=$msgId, Frames=$totalFrames), Payload(Hex): ${
+                            fullPayload.joinToString("") {
+                                "%02X".format(
+                                    it
+                                )
+                            }
+                        }"
+                    )
+
+                    // 3. 解密
+                    val decrypted = try {
+                        HomerunBleCipher.decrypt(fullPayload, aesKey)
+                    } catch (e: Exception) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            errorCode = "OWNER_VERIFY_DECRYPT_FAIL",
+                            customData = "鉴权解密失败: ${e.message}"
+                        )
+                        throw e
+                    }
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        customData = "鉴权: 解密后数据(Hex): ${decrypted.joinToString("") { "%02X".format(it) }}"
+                    )
+
+                    // 去除可能的填充或空格
+                    val rawString = String(decrypted, Charsets.UTF_8).trim()
+
+                    val deviceUid = try {
+                        val jsonObject = JSONObject(rawString)
+                        if (jsonObject.has("d")) {
+                            jsonObject.getString("d")
+                        } else {
+                            rawString
+                        }
+                    } catch (e: Exception) {
+                        rawString
+                    }
 
                     if (deviceUid == currentUid) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            customData = "鉴权成功: UID匹配"
+                        )
                         Observable.just(Unit)
                     } else {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "发送配网数据",
+                            errorCode = "OWNER_VERIFY_AUTH_FAIL",
+                            customData = "鉴权失败: 设备归属用户($deviceUid) != 当前用户($currentUid)"
+                        )
                         Observable.error(Throwable("无权限操作: 设备归属于其他用户"))
                     }
                 } catch (e: Exception) {
-                    HmLog("[鉴权] 校验归属失败(解析): ${e.message}")
-                    Observable.error(Throwable("校验设备归属失败: 数据解析错误"))
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        errorCode = "OWNER_VERIFY_FAIL",
+                        customData = "校验设备归属流程异常: ${e.message}"
+                    )
+                    Observable.error(Throwable("校验设备归属失败: ${e.message}"))
                 }
             }
     }
 
     /**
-     * 核心: 执行恢复出厂设置
-     *
-     * 1. 开启 Indicate (FC02).
-     * 2. 发送重置指令 (Write FC02).
-     * 3. 等待响应 ({"d":...} 或 {"e":...}).
-     */
-    private fun performFactoryReset(bleDevice: BleDevice, aesKey: ByteArray, uid: String): Observable<ProvisionEvent> {
-        val sendTrigger = PublishSubject.create<Boolean>()
-
-        // 1. 开启 Indicate
-        return HomerunBleGattHelper.indicate(
-            bleDevice,
-            SERVICE_UUID,
-            CHARACTERISTIC_FACTORY_RESET_UUID
-        ) {
-            // Indicate 开启成功，信号触发发送
-            sendTrigger.onNext(true)
-        }
-            // 2. 接收数据处理
-            .flatMap { packet ->
-                // 解析包结构 (处理粘包/分包逻辑由 Utils 完成)
-                val result = HomerunBlePacketUtils.parsePacket(packet)
-                if (result.packets.isEmpty()) {
-                    Observable.empty()
-                } else {
-                    Observable.fromIterable(result.packets)
-                        .map { it.payload }
-                }
-            }
-            .map { encryptedPayload ->
-                // 解密
-                val decrypted = HomerunBleCipher.decrypt(encryptedPayload, aesKey)
-                val jsonStr = String(decrypted, Charsets.UTF_8).trim()
-                HmLog("[重置] 收到响应: $jsonStr")
-                JSONObject(jsonStr)
-            }
-            .map { json ->
-                if (json.has("e")) {
-                    throw Throwable("重置失败: ${json.getString("e")}")
-                }
-                if (json.has("d")) {
-                    // 成功，提取 auth 和 nonce
-                    val dataObj = json.getJSONObject("d")
-                    val auth = dataObj.optString("auth", "")
-                    val nonce = dataObj.optString("nonce", "")
-
-                    val msg = "设备已重置 (Auth=$auth, Nonce=$nonce)"
-                    return@map ProvisionEvent.Success(bleDevice.deviceAddress.orEmpty(), msg) as ProvisionEvent
-                }
-                throw Throwable("无效响应")
-            }
-            // 3. 合并发送逻辑
-            .mergeWith(
-                sendTrigger.take(1).flatMap {
-                    try {
-                        val cmdJson = JSONObject()
-                        cmdJson.put("uid", uid)
-                        val cmdStr = cmdJson.toString()
-                        HmLog("[重置] 发送指令: $cmdStr")
-
-                        // 加密 & 打包
-                        val encrypted = HomerunBleCipher.encrypt(cmdStr.toByteArray(Charsets.UTF_8), aesKey)
-                        val packets = HomerunBlePacketUtils.packData(encrypted)
-
-                        // 串行发送所有包
-                        Observable.fromIterable(packets)
-                            .concatMap { pkt ->
-                                HomerunBleGattHelper.write(bleDevice, SERVICE_UUID, CHARACTERISTIC_FACTORY_RESET_UUID, pkt)
-                            }
-                            .ignoreElements()
-                            .toObservable()
-                    } catch (e: Exception) {
-                        Observable.error(e)
-                    }
-                }
-            )
-            // 4. 只要收到一个有效 Success Event 就结束
-            .filter { it is ProvisionEvent.Success }
-            .take(1)
-            .timeout(10, TimeUnit.SECONDS)
-    }
-
-    /**
-     * 发送配网信息 (Write FC04)
+     * 发送配网信息
      */
     @SuppressLint("CheckResult")
     private fun sendProvisionInfo(
@@ -541,17 +664,36 @@ class HomerunCustomProvisionProtocol(
             try {
                 // 1. 构建 JSON
                 val jsonPayload = buildProvisionJson(ssid, password, uid, brokers, randomCode)
-                HmLog("[配网] 发送Payload: $jsonPayload")
-
                 val rawBytes = jsonPayload.toByteArray(Charsets.UTF_8)
-                HmLog("[配网] 原始数据(Hex): ${rawBytes.joinToString("") { "%02X".format(it) }}")
-
                 // 2. 加密
-                val encryptedBytes = HomerunBleCipher.encrypt(rawBytes, aesKey)
-                HmLog("[配网] 加密后数据(Hex): ${encryptedBytes.joinToString("") { "%02X".format(it) }}")
+                val encryptedBytes = try {
+                    HomerunBleCipher.encrypt(rawBytes, aesKey)
+                } catch (e: Exception) {
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "获取设备信息",
+                        errorCode = "SEND_DATA_ENCRYPT_FAIL",
+                        customData = "加密失败: ${e.message}"
+                    )
+                    throw e
+                }
 
-                // 3. 分包
-                val packets = HomerunBlePacketUtils.packData(encryptedBytes)
+                // 3. 分包 (根据实际协商的 MTU 计算最大载荷)
+                val packets = HomerunBlePacketUtils.packData(
+                    encryptedBytes,
+                    targetMtu - HomerunBlePacketUtils.MTU_OVERHEAD
+                )
+
+                saveDistributionNetworkLog(
+                    product = currentProduct,
+                    stepName = "发送配网数据",
+                    customData = """
+                        发送配网Payload: $jsonPayload
+                        原始数据(Hex): ${rawBytes.joinToString("") { "%02X".format(it) }}
+                        加密后数据(Hex): ${encryptedBytes.joinToString("") { "%02X".format(it) }}
+                        分包数量: ${packets.size}
+                    """.trimIndent()
+                )
 
                 // 4. 发送
                 val sendObservables = packets.map { packet ->
@@ -566,8 +708,18 @@ class HomerunCustomProvisionProtocol(
                 Observable.concat(sendObservables)
                     .subscribe(
                         { },
-                        { error -> if (!emitter.isDisposed) emitter.onError(error) },
-                        { if (!emitter.isDisposed) emitter.onComplete() }
+                        { error ->
+                            saveDistributionNetworkLog(
+                                product = currentProduct,
+                                stepName = "获取设备信息",
+                                errorCode = "SEND_DATA_TO_BLE_DEVICE_FAIL",
+                                customData = "发送数据失败: ${error.message}"
+                            )
+                            if (!emitter.isDisposed) emitter.onError(error)
+                        },
+                        {
+                            if (!emitter.isDisposed) emitter.onComplete()
+                        }
                     )
 
             } catch (e: Exception) {
@@ -663,58 +815,141 @@ class HomerunCustomProvisionProtocol(
             .flatMap { result ->
                 try {
                     // 解密
-                    val decrypted = HomerunBleCipher.decrypt(result.payload, aesKey)
+                    val decrypted = try {
+                        HomerunBleCipher.decrypt(result.payload, aesKey)
+                    } catch (e: Exception) {
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "获取设备信息",
+                            errorCode = "ACCEPT_DATA_DECRYPT_FAIL",
+                            customData = "数据解密失败: ${e.message}"
+                        )
+                        throw e
+                    }
 
-                    // Debug Log
                     val hexPayload = result.payload.joinToString("") { "%02X".format(it) }
                     val hexDecrypted = decrypted.joinToString("") { "%02X".format(it) }
-                    HmLog("[配网] 加密payload(Hex): $hexPayload")
-                    HmLog("[配网] 解密payload(Hex): $hexDecrypted")
-
                     val jsonStr = String(decrypted, Charsets.UTF_8)
-                    HmLog("[配网] 收到响应: $jsonStr")
+
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        customData = """
+                            加密payload(Hex): $hexPayload
+                            解密payload(Hex): $hexDecrypted
+                            收到响应: $jsonStr
+                        """.trimIndent()
+                    )
 
                     val jsonObj = JSONObject(jsonStr)
 
                     // 检查错误 'e'
                     if (jsonObj.has("e")) {
                         val errorCode = jsonObj.getString("e")
-                        val errorDesc = when (errorCode) {
-                            "INVALID_DATA" -> "无效数据"
-                            "INVALID_USER_ID" -> "无效用户ID"
-                            "INVALID_WIFI_CREDENTIALS" -> "SSID 或密码错误"
-                            "MQTT_CONNECT_TIMEOUT" -> "连接 MQTT 超时"
-                            "MQTT_AUTH_FAILED" -> "MQTT 认证失败"
-                            "MQTT_PUBLISH_FAILED" -> "发送配网事件失败"
-                            "INVALID_CONFIRM_CODE" -> "无效确认码"
-                            else -> "未知错误"
+                        var eventCode = 4000
+                        var failureCode = "DEVICE_NOTI_UNKONW_ERROR"
+
+                        val errorDesc = when {
+                            errorCode.contains("INVALID_DATA") -> {
+                                failureCode = "DEVICE_NOTI_INVALID_DATA"
+                                "无效数据"
+                            }
+
+                            errorCode.contains("INVALID_USER_ID") -> {
+                                failureCode = "DEVICE_NOTI_INVALID_USER_ID"
+                                "无效用户 ID"
+                            }
+
+                            errorCode.contains("INVALID_WIFI_CREDENTIALS") -> {
+                                failureCode = "DEVICE_NOTI_INVALID_WIFI_CREDENTIALS"
+                                eventCode = 4002 // 映射到密码错误
+//                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.WifiNetworkIssue(
+//                                    isOnly24G = currentProduct?.network_type == 1
+//                                )
+                                "SSID 或密码错误"
+                            }
+
+                            errorCode.contains("INVALID_WIFI_BAND") -> {
+                                failureCode = "DEVICE_NOTI_INVALID_WIFI_BAND"
+//                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.WifiNetworkIssue(
+//                                    isOnly24G = currentProduct?.network_type == 1
+//                                )
+                                "无效 Wi-Fi 频段"
+                            }
+
+                            errorCode.contains("IP_ADDRESS_TIMEOUT") -> {
+                                failureCode = "DEVICE_NOTI_IP_ADDRESS_TIMEOUT"
+//                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.WifiNetworkIssue(
+//                                    isOnly24G = currentProduct?.network_type == 1
+//                                )
+                                "获取 IP 地址超时"
+                            }
+//
+//                            errorCode.contains("MQTT_CONNECT_TIMEOUT") -> {
+//                                failureCode = "DEVICE_NOTI_MQTT_CONNECT_TIMEOUT"
+//                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.ServerIssue
+//                                "连接 MQTT 超时"
+//                            }
+//
+//                            errorCode.contains("MQTT_AUTH_FAILED") -> {
+//                                failureCode = "DEVICE_NOTI_MQTT_AUTH_FAILED"
+//                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.ServerIssue
+//                                "MQTT 认证失败"
+//                            }
+
+                            errorCode.contains("MQTT_PUBLISH_FAILED") -> {
+                                failureCode = "DEVICE_NOTI_MQTT_PUBLISH_FAILED"
+                                "发送配网事件失败"
+                            }
+
+                            else -> {
+                                failureCode = "DEVICE_NOTI_UNKONW_ERROR"
+                                "未知错误"
+                            }
                         }
-                        return@flatMap Observable.error(Throwable("配网失败: $errorDesc ($errorCode)"))
+
+                        saveDistributionNetworkLog(
+                            product = currentProduct,
+                            stepName = "获取设备信息",
+                            errorCode = failureCode,
+                            customData = "配网失败: $errorDesc ($errorCode)"
+                        )
+                        return@flatMap Observable.just(ProvisionEvent.Failure(eventCode, "配网失败: $errorDesc ($errorCode)"))
                     }
 
                     // 检查进度 'd'
                     if (jsonObj.has("d")) {
                         val progressCode = jsonObj.getString("d")
                         return@flatMap when (progressCode) {
-                            "1" -> Observable.just(ProvisionEvent.Progress("connecting_ap", 20, "设备连接路由中"))
-                            "2" -> Observable.just(ProvisionEvent.Progress("getting_ip", 50, "获取网络配置中"))
-                            "3" -> Observable.just(ProvisionEvent.Progress("connecting_mqtt", 80, "连接服务器中"))
+                            "1" -> Observable.just(ProvisionEvent.Progress("connecting_ap", 20, "设备连接 AP 过程中"))
+                            "2" -> Observable.just(ProvisionEvent.Progress("getting_ip", 50, "设备连接 MQTT 服务器中"))
+                            "3" -> Observable.just(ProvisionEvent.Progress("connecting_mqtt", 80, "设备上报配网信息中"))
 
                             // 4: 保存配网信息成功 -> 视为配网流程结束
                             "4" -> {
                                 val mac = currentProduct?.address ?: ""
-                                Observable.just(ProvisionEvent.Success(mac, "配网成功"))
+                                saveDistributionNetworkLog(currentProduct, "发送配网数据")
+                                Observable.just(ProvisionEvent.Success(mac, "保存配网信息成功"))
                             }
 
                             else -> Observable.just(ProvisionEvent.Progress("unknown", 10, "处理中: $progressCode"))
                         }
                     }
 
-                    // 空对象 {} -> 参数校验通过，开始等待进度通知
-                    HmLog("[配网] 参数校验通过，等待设备连接...")
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        customData = "参数校验通过，等待设备连接..."
+                    )
                     return@flatMap Observable.just(ProvisionEvent.Progress("verified", 0, "等待配网"))
 
                 } catch (e: Exception) {
+                    saveDistributionNetworkLog(
+                        product = currentProduct,
+                        stepName = "发送配网数据",
+                        errorCode = "DEVICE_BLE_CONFIG_FUNC_FAIL",
+                        customData = "解析响应失败: ${e.message}"
+                    )
                     return@flatMap Observable.error(Throwable("解析响应失败: ${e.message}"))
                 }
             }
@@ -736,9 +971,6 @@ class HomerunCustomProvisionProtocol(
         return root.toString().replace("\\/", "/")
     }
 
-    private fun HmLog(msg: String) {
-        Log.d(TAG, msg)
-    }
 
     // endregion
 

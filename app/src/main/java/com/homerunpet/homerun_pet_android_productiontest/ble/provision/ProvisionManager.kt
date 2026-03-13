@@ -2,10 +2,17 @@ package com.homerunpet.homerun_pet_android_productiontest.ble.provision
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.util.Log
+import com.drake.net.Get
+import com.drake.net.utils.scopeNet
+import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
+import com.homerunpet.homerun_pet_android_productiontest.ble.model.DeviceInfoDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.impl.HomerunCustomProvisionProtocol
+import com.homerunpet.homerun_pet_android_productiontest.common.ext.saveDistributionNetworkLog
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.schedulers.Schedulers
 
 /**
  * 配网管理器 - 统一配网入口
@@ -21,9 +28,12 @@ class ProvisionManager private constructor(
     private val context: Context
 ) {
 
-    private var currentProtocol: IProvisionProtocol? = null  //可指向任何一个实现了接口的实现类，多实现体现
+    private var currentProtocol: IProvisionProtocol? = null
     // 全局唯一的产品数据源
     private var globalProduct: Product? = null
+
+    // 连接开始时间
+    private var connectionStartTime: Long = 0L
 
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -53,19 +63,31 @@ class ProvisionManager private constructor(
             ProvisionProtocol.AP
         }
 
-        // 如果协议类型改变，或者当前没有协议实例，则重新创建对应的实现类，目前就一个HomerunCustomProvisionProtocol实现类
-        //private var currentProtocol: IProvisionProtocol? = null 就=HomerunCustomProvisionProtocol（）
-
+        // 如果协议类型改变，或者当前没有协议实例，则重新创建
         if (currentProtocol == null || getCurrentProtocol() != protocol) {
             currentProtocol = when (protocol) {
+//                ProvisionProtocol.EZIOT -> EzIotProvisionProtocol(context)
+//                ProvisionProtocol.BLUFI -> BluFiProvisionProtocol(context)
                 ProvisionProtocol.HOMERUN_CUSTOM -> HomerunCustomProvisionProtocol(context)
+//                ProvisionProtocol.AP -> ApProvisionProtocol(context)
                 else -> null
             }
+            Log.d("Provision", "currentProtocol 创建/更新成功: $currentProtocol")
         }
 
         // 更新 Protocol 内部的 Product
         // 注意：这里我们将 globalProduct 传给协议，保证引用一致
         currentProtocol?.setProduct(product)
+
+        // ✅ 日志确认 product 是否成功传给协议
+        if (currentProtocol != null) {
+            val protocolProduct = currentProtocol?.getProduct()
+            Log.d("Provision", "Protocol 内部 Product: $protocolProduct")
+            Log.d("Provision", "Product MAC: ${protocolProduct?.hmFastBleDevice?.mac}")
+            Log.d("Provision", "Product Protocol: ${protocolProduct?.hmFastBleDevice?.protocol}")
+        } else {
+            Log.e("Provision", "currentProtocol 为 null，无法 set Product")
+        }
     }
 
     /**
@@ -74,7 +96,14 @@ class ProvisionManager private constructor(
     fun getProduct(): Product? {
         return currentProtocol?.getProduct() ?: globalProduct
     }
-
+    
+    /**
+     * 设置期望 MTU (由 UI 控制)
+     */
+    fun setTargetMtu(mtu: Int) {
+        currentProtocol?.setTargetMtu(mtu)
+    }
+    
     /**
      * 连接设备
      * 需先调用 setProduct
@@ -100,24 +129,73 @@ class ProvisionManager private constructor(
         password: String,
         extraParams: Map<String, Any>? = null
     ): Observable<ProvisionEvent> {
+        connectionStartTime = System.currentTimeMillis() / 1000
         return currentProtocol?.configureWifi(ssid, password, extraParams)
             ?: Observable.just(ProvisionEvent.Failure(-1, "未连接设备"))
     }
 
-    /**
-     * 第四步：检查设备绑定状态
-     */
-    fun checkBindStatus(deviceSerial: String): Observable<ProvisionEvent> {
-        return currentProtocol?.checkBindStatus(deviceSerial)
-            ?: Observable.just(ProvisionEvent.Failure(-1, "协议未初始化"))
-    }
+//    /**
+//     * 第四步：检查设备绑定状态
+//     */
+//    fun checkBindStatus(deviceSerial: String): Observable<ProvisionEvent> {
+//        return currentProtocol?.checkBindStatus(deviceSerial)
+//            ?: Observable.just(ProvisionEvent.Failure(-1, "协议未初始化"))
+//    }
 
     /**
      * 第五步：检查设备在线状态
      */
     fun checkOnlineStatus(deviceSerial: String): Observable<ProvisionEvent> {
-        return currentProtocol?.checkOnlineStatus(deviceSerial)
-            ?: Observable.just(ProvisionEvent.Failure(-1, "协议未初始化"))
+        val protocol = currentProtocol ?: return Observable.just(ProvisionEvent.Failure(-1, "协议未初始化"))
+
+        // 自研协议参数不同 (provision_code)，走自己的实现
+        if (protocol is HomerunCustomProvisionProtocol) {
+            return protocol.checkOnlineStatus(deviceSerial)
+        }
+
+        // 其他协议统一走这里的逻辑 (使用 provision_timestamp)
+        return fetchProvisionStatusCommon(deviceSerial)
+            .flatMap { detail ->
+                saveDistributionNetworkLog(protocol.getProduct(), "查询设备在线状态", customData = "设备已上线")
+                Observable.just(ProvisionEvent.Success(deviceSerial, "设备已上线", detail) as ProvisionEvent)
+            }
+            .onErrorReturn { e ->
+                saveDistributionNetworkLog(
+                    product = protocol.getProduct(),
+                    stepName = "查询设备在线状态",
+                    errorCode = "DEVICE_NOT_ONLINE",
+                    customData = e.message.toString()
+                )
+                ProvisionEvent.Failure(-1, e.message ?: "设备不在线")
+            }
+            .subscribeOn(Schedulers.io())
+    }
+
+    private fun fetchProvisionStatusCommon(deviceSerial: String): Observable<DeviceInfoDetailBean> {
+        return Observable.create { emitter ->
+            val scope = scopeNet {
+                try {
+                    val detail = Get<DeviceInfoDetailBean?>(HmApi.getDeviceProvisionStatus(deviceSerial)) {
+                        setQuery("provision_timestamp", connectionStartTime)
+                    }.await()
+                    if (!emitter.isDisposed) {
+                        if (detail != null) {
+                            emitter.onNext(detail)
+                            emitter.onComplete()
+                        } else {
+                            emitter.tryOnError(Throwable("设备不在线"))
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (!emitter.isDisposed) {
+                        emitter.tryOnError(Throwable("设备不在线"))
+                    }
+                }
+            }
+            emitter.setCancellable {
+                scope.cancel()
+            }
+        }
     }
 
     /**
@@ -133,8 +211,7 @@ class ProvisionManager private constructor(
      * 断开指定设备
      */
     fun disconnectDevice() {
-        val protocol = currentProtocol?.getProduct()?.hmFastBleDevice?.protocol
-        (protocol as HomerunCustomProvisionProtocol).disconnect()
+        currentProtocol?.disconnect()
     }
 
     /**
@@ -142,7 +219,10 @@ class ProvisionManager private constructor(
      */
     fun getCurrentProtocol(): ProvisionProtocol? {
         return when (currentProtocol) {
+//            is EzIotProvisionProtocol -> ProvisionProtocol.EZIOT
+//            is BluFiProvisionProtocol -> ProvisionProtocol.BLUFI
             is HomerunCustomProvisionProtocol -> ProvisionProtocol.HOMERUN_CUSTOM
+//            is ApProvisionProtocol -> ProvisionProtocol.AP
             else -> null
         }
     }

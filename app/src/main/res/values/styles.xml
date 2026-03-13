@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="BottomNavText" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">20sp</item> <!-- 调整大小 -->
+        <item name="android:textColor">@color/nav_item_color</item>
+    </style>
+</resources>

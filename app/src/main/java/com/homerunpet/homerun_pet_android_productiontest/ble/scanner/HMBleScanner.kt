@@ -11,7 +11,6 @@ import com.homerunpet.homerun_pet_android_productiontest.ble.model.HMFastBleDevi
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.scanner.packet.HomerunBlePacket
 import com.homerunpet.homerun_pet_android_productiontest.common.ext.saveScanLog
-import com.homerunpet.v2.ble.scanner.DeviceIdentifier
 import io.reactivex.rxjava3.core.Observable
 import java.util.concurrent.ConcurrentHashMap
 
@@ -165,6 +164,7 @@ class HMBleScanner private constructor(
         var logVer = ""
         var logDevType = ""
         var logMode = ""
+        var dn = ""
 
         if (protocol == ProvisionProtocol.EZIOT) {
             val data2B18 = parsedRecord.manufacturerItems[0x2B18]
@@ -195,7 +195,7 @@ class HMBleScanner private constructor(
                 }
 
                 // 拼接: PID:Name (符合 deviceId 格式 "A9012801:A024AA0A2")
-                deviceSerial = "$finalPid:$name"
+                deviceSerial = "$finalPid:$name".uppercase()
                 pk = finalPid
             }
         } else if (protocol == ProvisionProtocol.HOMERUN_CUSTOM) {
@@ -206,7 +206,8 @@ class HMBleScanner private constructor(
                     // homerunData 已经是剔除了 CompanyID 后的 Payload (即从 Version/Type 开始)
                     val packet = HomerunBlePacket.parse(homerunData)
                     if (packet != null) {
-                        deviceSerial = packet.deviceNameSuffix
+                        dn = packet.deviceNameSuffix
+                        deviceSerial = "${packet.productKey}:${packet.deviceNameSuffix}".uppercase()
                         // 配网模式:
                         // 0: Initial (首次配网，无网络信息)
                         // 1: Modify  (修改配网信息，有网络信息)
@@ -265,7 +266,8 @@ class HMBleScanner private constructor(
             protocol = protocol,
             deviceSerial = deviceSerial,
             provisionMode = provisionMode,
-            pk = pk
+            pk = pk,
+            dn = dn
         )
     }
 

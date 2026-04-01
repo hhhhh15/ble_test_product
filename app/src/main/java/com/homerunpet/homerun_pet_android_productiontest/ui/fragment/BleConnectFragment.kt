@@ -10,6 +10,7 @@ import com.homerunpet.homerun_pet_android_productiontest.R
 import com.homerunpet.homerun_pet_android_productiontest.base.HMBaseFragment
 import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
 import com.homerunpet.homerun_pet_android_productiontest.base.net.SpManager
+import com.homerunpet.homerun_pet_android_productiontest.ble.model.DeviceInfoDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionEvent
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionManager
@@ -59,7 +60,7 @@ class BleConnectFragment: HMBaseFragment<ConnectViewModel, ProductionStaffConnec
 
 
                             if (product.deviceSerial != null) {
-                                val sn = product.deviceSerial!!
+                                val sn = product.deviceSerial!!.lowercase()
                                 Log.d(TAG, "拿到设备序列号，准备检查设备在线状态: $sn")
                                 //配网成功，调用检查设备状态方法
                                 checkDeviceStatus(sn)
@@ -104,9 +105,13 @@ class BleConnectFragment: HMBaseFragment<ConnectViewModel, ProductionStaffConnec
             .subscribe({ provisionEvent ->
                 Log.d(TAG, "设备在线状态: $provisionEvent")
                 if (provisionEvent is ProvisionEvent.Success) {
-                    deviceSecret = provisionEvent.data.toString()
+                    val data=provisionEvent.data
+                    if(data is DeviceInfoDetailBean){
+                        deviceSecret = data.device_secret?:"在线成功没有secret，接口有问题"
+                    }
                     // 测试看一下检查设备上线状态的api，之后删掉
-                    mBind.lookDeviceStatus.text = deviceSecret
+                    mBind.lookDeviceStatus.text = "看看设备密码："+ deviceSecret
+
                 } else if (provisionEvent is ProvisionEvent.Failure) {
                     mBind.lookDeviceStatus.text = "设备不在线/异常"
                 }
@@ -118,12 +123,13 @@ class BleConnectFragment: HMBaseFragment<ConnectViewModel, ProductionStaffConnec
     }
     fun randomSn():String{
         val sn=SpManager.deviceSn
-        val fixedPart = "1234567890"
+        val fixedPart = "1234567891"
         val chars = "abcdefghijklmnopqrstuvwxyz0123456789"  //随机字符池
         val randomPart = (1..15)
             .map { chars.random() }
             .joinToString("")//字符间隔，这里是无间隔
         if (sn.isNullOrEmpty()){
+            SpManager.deviceSn=fixedPart + randomPart
             return fixedPart + randomPart
         }else{
             return sn

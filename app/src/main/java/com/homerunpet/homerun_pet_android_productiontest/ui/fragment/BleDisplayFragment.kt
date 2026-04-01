@@ -187,7 +187,7 @@ class BleDisplayFragment:HMBaseFragment<BaseViewModel,ProductionStaffDisplayScan
 
 
             val d = bleScanner.scanDevicesByProtocol(ProvisionProtocol.HOMERUN_CUSTOM)
-                .delay(100, TimeUnit.MILLISECONDS)   // 👈 稍微延迟，等 PK 解析完成
+                .delay(1000, TimeUnit.MILLISECONDS)   // 👈 稍微延迟，等 PK 解析完成
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ device ->
 
@@ -221,7 +221,7 @@ class BleDisplayFragment:HMBaseFragment<BaseViewModel,ProductionStaffDisplayScan
 
                     // 2. 从云端产品映射中查找对应产品并组装
                     val mixProduct = productMap[device.pk]?.copy(
-                        product_key=device.pk,
+                        product_key=device.pk?.lowercase(),
                         data_proto= 1,
                         deviceSerial = device.deviceSerial,   //product获取到的devcie的序列号不准确啊。
                         address = device.mac,
@@ -230,7 +230,7 @@ class BleDisplayFragment:HMBaseFragment<BaseViewModel,ProductionStaffDisplayScan
                     ) ?: Product(
                         // 没有云端信息时创建基础对象。
                         deviceSerial=device.deviceSerial,
-                        product_key=device.pk,
+                        product_key=device.pk?.lowercase(),
                         data_proto = 1,
                         address = device.mac,
                         name = device.name.takeIf { it.isNotBlank() } ?: "未知设备",
@@ -256,15 +256,15 @@ class BleDisplayFragment:HMBaseFragment<BaseViewModel,ProductionStaffDisplayScan
                         Log.d("BLE", "新增设备: mac=$mac, pk=${device.pk}, name=${mixProduct.name}")
                     }
                     //2.12因为云端没有数据，不能返回到这个product_key.我先自己填充
-                    val targetMac = "D0:CF:13:E7:4E:AA"
-
-                    val product = mixProductList.find {
-                        it.hmFastBleDevice?.mac.equals(targetMac, ignoreCase = true)
-                    }
-                    product?.apply {
-                        product_key="a9015201"
-                        lastSeenTime = System.currentTimeMillis()
-                    }
+//                    val targetMac = "D0:CF:13:E7:4E:AA"
+//
+//                    val product = mixProductList.find {
+//                        it.hmFastBleDevice?.mac.equals(targetMac, ignoreCase = true)
+//                    }
+//                    product?.apply {
+//                        product_key="a9015201"
+//                        lastSeenTime = System.currentTimeMillis()
+//                    }
 
                     // 4. 刷新 UI（必须是新 List）
                     adapter.submitList(mixProductList.toList())

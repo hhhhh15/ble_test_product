@@ -102,7 +102,7 @@ class LoginActivity: HMBaseActivity<BaseViewModel, ActivityLoginBinding>() {
 
         //网络请求
         scopeNetLife {
-            val response=Post<HMBaseResponse<ResponseToken>>(HmApi.PRODUCT_TEXT_LOGIN){
+            val response=Post<HMBaseResponse<ResponseToken>>(HmApi.PRODUCT_TEST_LOGIN){
                 json (mapOf(
                     "phone" to account,
                     "password" to password
@@ -115,8 +115,8 @@ class LoginActivity: HMBaseActivity<BaseViewModel, ActivityLoginBinding>() {
                 SpManager.token=responseToken.access_token
                 SpManager.refreshToken=responseToken.refresh_token
 
-//                val intent=Intent(context, ProductionStaffActivity::class.java)
-//                    startActivity(intent)
+                SpManager.userId=account
+
                             //登录成功获取用户消息，确定身份
                 Log.e(TAG, "准备进行用户信息请求") // 新增日志，检查这一行是否会输出
                 val userMessage=Get<HMBaseResponse<UserMessage>>(HmApi.PRODUCT_USER_MESSAGE).await()

@@ -2,7 +2,7 @@ package com.homerunpet.homerun_pet_android_productiontest.base.net
 
 import com.drake.net.BuildConfig
 import com.drake.net.okhttp.setRequestInterceptor
-import com.homerunpet.homerun_pet_android_productiontest.data.ResponseToken
+import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi.PRODUCT_TEST_TOKEN
 import com.safframework.http.interceptor.AndroidLoggingInterceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -40,7 +40,7 @@ object RefreshTokenClient {
             ?: throw IllegalStateException("RefreshToken 不存在")
 //构建请求request
         val request = Request.Builder()
-            .url("${HmApi.getBaseUrl()}/v1/users/refresh-token")
+            .url("${HmApi.getBaseUrl()}$PRODUCT_TEST_TOKEN")
             .post(
                 JSONObject().apply {
                     put("refresh_token", refreshToken)

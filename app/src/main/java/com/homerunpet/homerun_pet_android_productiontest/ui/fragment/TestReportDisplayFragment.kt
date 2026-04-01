@@ -30,7 +30,6 @@ class TestReportDisplayFragment: HMBaseFragment<BaseViewModel, ProductionAdminRe
         realDn=dn!!
 
         mBind.tvDeviceInfo.text=getDevcieData().toString()
-        mBind.tvTestResult.text=getTestReportData().toString()
     }
 
     fun getDevcieData(): DeviceMessage? {
@@ -40,12 +39,6 @@ class TestReportDisplayFragment: HMBaseFragment<BaseViewModel, ProductionAdminRe
         }
         return device
     }
-    fun getTestReportData():TestReportDetailBean?{
-        scopeNetLife {
-            val reportData=Get<HMBaseResponse<TestReportDetailBean>>(HmApi.getTestReport()).await()
-            testReport=reportData.data
-        }
-        return testReport
-    }
+
 
 }

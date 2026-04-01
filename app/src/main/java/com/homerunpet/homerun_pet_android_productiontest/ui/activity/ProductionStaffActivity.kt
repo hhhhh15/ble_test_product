@@ -9,6 +9,7 @@ import com.homerunpet.homerun_pet_android_productiontest.databinding.ProductionS
 import com.homerunpet.homerun_pet_android_productiontest.ui.fragment.ObtainSnFragment
 import com.homerunpet.homerun_pet_android_productiontest.ui.fragment.PersonalCenter
 import com.homerunpet.homerun_pet_android_productiontest.ui.fragment.PhysicalModelControlFragment
+import com.homerunpet.homerun_pet_android_productiontest.ui.fragment.PostTestResultFragment
 
 class ProductionStaffActivity: HMBaseActivity<BaseViewModel,ProductionStaffMainBinding>() {
 
@@ -24,7 +25,7 @@ class ProductionStaffActivity: HMBaseActivity<BaseViewModel,ProductionStaffMainB
             when(it.itemId){
                 R.id.nav_test->switchFragment(ObtainSnFragment())
                 R.id.nav_mine->switchFragment((PersonalCenter()))
-                R.id.nav_model_display->switchFragment(PhysicalModelControlFragment())
+                R.id.nav_test_report->switchFragment(PostTestResultFragment())
             }
             true
         }

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- 顶部标题 -->
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="测试结果"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/color_000000"
+        android:gravity="center"
+        android:paddingVertical="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 当前测试设备信息 -->
+    <TextView
+        android:id="@+id/tv_device_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="当前测试设备信息"
+        android:textSize="14sp"
+        android:textColor="@color/color_000000"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:background="@drawable/bg_border_rect"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/tv_title"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- 测试结果区域 -->
+    <TextView
+        android:id="@+id/tv_test_result"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_border_rect"
+        android:gravity="center"
+        android:text="测试结果"
+        android:textSize="16sp"
+        android:textColor="@color/color_000000"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="45dp"
+        app:layout_constraintTop_toBottomOf="@id/tv_device_info"
+        app:layout_constraintBottom_toTopOf="@id/btn_complete_test"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 底部按钮 -->
+    <Button
+        android:id="@+id/btn_complete_test"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="完成测试\n获取产测报告"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="@color/colors_ffffff"
+        android:gravity="center"
+        android:paddingVertical="14dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

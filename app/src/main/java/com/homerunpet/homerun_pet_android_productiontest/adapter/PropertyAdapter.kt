@@ -2,23 +2,25 @@ package com.homerunpet.homerun_pet_android_productiontest.adapter
 
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.homerunpet.homerun_pet_android_productiontest.data.Property
+import com.homerunpet.homerun_pet_android_productiontest.data.Property1
 import com.homerunpet.homerun_pet_android_productiontest.databinding.ItemBoolBinding
 import com.homerunpet.homerun_pet_android_productiontest.databinding.ItemEnumBinding
 import com.homerunpet.homerun_pet_android_productiontest.databinding.ItemNumberBinding
 import com.homerunpet.homerun_pet_android_productiontest.ui.popup.ModelValueEditorPopup
+
 import com.lxj.xpopup.XPopup
 import java.util.Locale
 
 class PropertyAdapter (
-    private val propertyData:MutableList<Property> = mutableListOf(),
+    private val propertyData:MutableList<Property1> = mutableListOf(),
     private val listener: PropertyItemActionListener
 ):RecyclerView.Adapter<RecyclerView.ViewHolder>(){
     private val TAG="PropertyAdapter"
-
+    private val isRW=false
 
     companion object{
         private const val TYPE_ENUM=0
@@ -26,7 +28,7 @@ class PropertyAdapter (
         private const val TYPE_BOOL = 2
     }
 
-    fun submitList(list: List<Property>) {
+    fun submitList(list: List<Property1>) {
         val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
 
             override fun getOldListSize(): Int = propertyData.size
@@ -59,7 +61,7 @@ class PropertyAdapter (
     }
     private enum class ValueType{ENUM, NUMBER, BOOL }
 
-    private fun typeToInt(item:Property):ValueType{
+    private fun typeToInt(item:Property1):ValueType{
         return when(item.type){
             "enum"->ValueType.ENUM
             "number"->ValueType.NUMBER
@@ -70,16 +72,22 @@ class PropertyAdapter (
     }
 
 
+    private fun View.setReadWriteMode(canEdit: Boolean) {
+        isClickable = canEdit
+        isEnabled = canEdit
+        alpha = if (canEdit) 1f else 0.5f
+    }
+
     inner class EnumViewHolder(
         private  val binding: ItemEnumBinding): RecyclerView.ViewHolder(binding.root){
 
-        fun bind(item: Property){
+        fun bind(item: Property1){
             val (name, enName, typeText, rwText, enumOptions) = extractCommon(item)
             binding.tvName.text = name
             binding.tvEnName.text = enName
             binding.tvType.text = typeText
             binding.tvRwTag.text = rwText
-
+            binding.etValue.setText(item.current_value?.toString() ?: "N/A", false)
 
             //这个enumOptions就是为了提取的spec.enum中有的枚举数据，
             val enumItems = enumOptions?.ifEmpty { listOf("N/A") }?:return
@@ -88,105 +96,132 @@ class PropertyAdapter (
             binding.etValue.isFocusable = false
             binding.etValue.isFocusableInTouchMode = false
 
-            binding.etValue.setOnClickListener {
-                val pos = bindingAdapterPosition
-                if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
-                val currentItem = propertyData[pos]
+            val canEdit = item.access_mode == "rw"
+            binding.etValue.setReadWriteMode(canEdit)
 
-                // enum 用 index 映射成 List<Int>
-                val values = enumItems.indices.toList()
-                val currentIndex = enumItems.indexOf(binding.etValue.text?.toString().orEmpty()).takeIf { it >= 0 }
+            if (canEdit) {
+                binding.etValue.setOnClickListener {
+                        val pos = bindingAdapterPosition
+                        if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
+                        val currentItem = propertyData[pos]
 
-                XPopup.Builder(binding.root.context)
-                    .dismissOnTouchOutside(true)
-                    .asCustom(
-                        ModelValueEditorPopup(
-                            context = binding.root.context,
-                            title = item.name,
-                            values = values,
-                            initialValue = currentIndex,
-                            valueFormatter = { idx -> enumItems.getOrElse(idx) { "N/A" } },//idx是索引，item是List<String>数组
-                            onConfirm = { idx ->
-                                val selected = enumItems.getOrElse(idx) { "N/A" }
-                                binding.etValue.setText(selected, false)
-                                listener.onEnumItemSelected(currentItem, selected)
-                            },
-                        )
-                    )
-                    .show()
+                        // enum 用 index 映射成 List<Int>
+                        val values = enumItems.indices.toList()
+                        val currentIndex = enumItems.indexOf(binding.etValue.text?.toString().orEmpty()).takeIf { it >= 0 }
+
+                        XPopup.Builder(binding.root.context)
+                            .dismissOnTouchOutside(true)
+                            .asCustom(
+                                ModelValueEditorPopup(
+                                    context = binding.root.context,
+                                    title = item.name,
+                                    values = values,
+                                    initialValue = currentIndex,
+                                    valueFormatter = { idx -> enumItems.getOrElse(idx) { "N/A" } },//idx是索引，item是List<String>数组
+                                    onConfirm = { idx ->
+                                        val selected = enumItems.getOrElse(idx) { "N/A" }
+                                        binding.etValue.setText(selected, false)
+                                        listener.onEnumItemSelected(currentItem, selected)
+                                    },
+                                )
+                            )
+                            .show()
+
+                }
+            } else {
+                binding.etValue.setOnClickListener(null)
             }
+
         }
     }
     inner class NumberViewHolder(
         private val binding: ItemNumberBinding): RecyclerView.ViewHolder(binding.root){
 
 
-        fun bind(item: Property){
+        fun bind(item: Property1){
             val (name, enName, typeText, rwText, _) = extractCommon(item)
             binding.tvName.text = item.name
             binding.tvEnName.text = enName
             binding.tvType.text = typeText
             binding.tvRwTag.text = rwText
+            Log.d(TAG, "bind: NumberViewHolder中${item.current_value}")
+            binding.etValue.setText(item.current_value?.toString()?.toDoubleOrNull()?.toInt()?.toString() ?: "N/A")
 
             val specs =item.specs
             binding.etValue.isFocusable = false
             binding.etValue.isFocusableInTouchMode = false
 
 
+            val canEdit = item.access_mode == "rw"
+            binding.etValue.setReadWriteMode(canEdit)
 
-            binding.etValue.setOnClickListener {
-                val pos = bindingAdapterPosition
-                if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
-                val currentItem = propertyData[pos]
+            if (canEdit) {
+                binding.etValue.setOnClickListener {
+                        val pos = bindingAdapterPosition
+                        if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
+                        val currentItem = propertyData[pos]
 
-                val min = specs?.min ?: 0
-                val max = specs?.max ?: min
-                val step = (specs?.step ?: 1).coerceAtLeast(1)
-                val unit = specs?.unit.orEmpty()
-                Log.d(TAG, "min=$min max=$max step=$step values=${buildSteppedValues(min, max, step)}")
+                        val min = specs?.min ?: 0
+                        val max = specs?.max ?: min
+                        val step = (specs?.step ?: 1).coerceAtLeast(1)
+                        val unit = specs?.unit.orEmpty()
+                        Log.d(TAG, "min=$min max=$max step=$step values=${buildSteppedValues(min, max, step)}")
 
-                val values = buildSteppedValues(min, max, step)
-                Log.d(TAG, "NumberViewHolder的bind中将要打开弹窗前，准备的值$values: ")
+                        val values = buildSteppedValues(min, max, step)
+                        Log.d(TAG, "NumberViewHolder的bind中将要打开弹窗前，准备的值$values: ")
 
 
-                val initial = binding.etValue.text?.toString()?.trim()?.toIntOrNull()
+                        val initial = binding.etValue.text?.toString()?.trim()?.toIntOrNull()
 
-                XPopup.Builder(binding.root.context)
-                    .dismissOnTouchOutside(true)
-                    .asCustom(
-                        ModelValueEditorPopup(
-                            context = binding.root.context,
-                            title = name,
-                            values = values,
-                            initialValue = initial,
-                            valueFormatter = { v -> formatNumberValue(enName, unit, min, max, step, v) },
-                            onConfirm = { v ->
-                                binding.etValue.setText(v.toString())
-                                listener.onNumberValueSelected(currentItem, v)
-                            },
-                        )
-                    )
-                    .show()
+                        XPopup.Builder(binding.root.context)
+                            .dismissOnTouchOutside(true)
+                            .asCustom(
+                                ModelValueEditorPopup(
+                                    context = binding.root.context,
+                                    title = name,
+                                    values = values,
+                                    initialValue = initial,
+                                    valueFormatter = { v -> formatNumberValue(enName, unit, min, max, step, v) },
+                                    onConfirm = { v ->
+                                        binding.etValue.setText(v.toString())
+                                        listener.onNumberValueSelected(currentItem, v)
+                                    },
+                                )
+                            )
+                            .show()
+
+                }
+            } else {
+                binding.etValue.setOnClickListener(null)
             }
+
+
         }
 
     }
     inner class BoolViewHolder(
         private val binding: ItemBoolBinding): RecyclerView.ViewHolder(binding.root){
 
-        fun bind(item: Property){
+        fun bind(item: Property1){
             val (name, key, typeText, rwText, _) = extractCommon(item)
             binding.tvName.text = name
             binding.tvKey.text = key
             binding.tvType.text = typeText
             binding.tvRwTag.text = rwText
 
-            binding.switchValue.setOnCheckedChangeListener(null)
-            binding.switchValue.setOnCheckedChangeListener { _, isChecked ->
-                val pos = bindingAdapterPosition
-                if (pos == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
-                listener.onBoolValueChanged(propertyData[pos], isChecked)
+            val canEdit = item.access_mode == "rw"
+            binding.switchValue.setReadWriteMode(canEdit)
+
+            if (canEdit) {
+                binding.switchValue.setOnCheckedChangeListener(null)   // 先清掉监听
+                binding.switchValue.isChecked = item.current_value == true // 设置当前值
+                binding.switchValue.setOnCheckedChangeListener { _, isChecked ->
+                    val pos = bindingAdapterPosition
+                    if (pos == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
+                    listener.onBoolValueChanged(propertyData[pos], isChecked)
+                }
             }
+
         }
     }
 
@@ -225,9 +260,10 @@ class PropertyAdapter (
         val typeText: String,
         val rwText: String,
         val enumOptions: List<String>?=null,
+        val value:Any?
     )
 
-    private fun extractCommon(item: Property): CommonUi {
+    private fun extractCommon(item: Property1): CommonUi {
         return when (item.type) {
             "enum" -> CommonUi(
                 name = item.name,
@@ -235,20 +271,22 @@ class PropertyAdapter (
                 typeText = item.type.uppercase(),
                 rwText = item.access_mode.uppercase(),
                 enumOptions = item.specs?.enum ?: emptyList(),
+                value = item.current_value
             )
             "number" -> CommonUi(
                 name = item.name,
                 enName = item.identifier,
                 typeText = item.type.uppercase(),
                 rwText = item.access_mode.uppercase(),
+                value = item.current_value
 
             )
             "bool" -> CommonUi(
                 name = item.name ,
                 enName = item.identifier ,
                 typeText = item.type .uppercase(),
-                rwText =  item.access_mode.uppercase()
-
+                rwText =  item.access_mode.uppercase(),
+                value = item.current_value
             )
             //item.type的还有String、array，不知道页面暂时不写新的viewHolder
             else -> CommonUi(
@@ -256,6 +294,7 @@ class PropertyAdapter (
                 enName = item.identifier,
                 typeText = item.type.uppercase(),
                 rwText = item.access_mode.uppercase(),
+                value = item.current_value
             )
         }
 

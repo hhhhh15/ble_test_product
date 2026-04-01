@@ -1,4 +1,4 @@
-package com.homerunpet.homerun_pet_android_productiontest.ble.scanner.packet
+package com.homerunpet.v2.ble.scanner.packet
 
 /**
  * 霍曼自研协议广播包解析类
@@ -9,7 +9,7 @@ package com.homerunpet.homerun_pet_android_productiontest.ble.scanner.packet
  * Byte 1: Function Mask
  * Byte 2: Reserved Mask
  * Byte 3-6: Product Key (4 bytes)
- * Byte 7-10: Device Name / Suffix (4 bytes)
+ * Byte 7-N: Device Name / Suffix (Variable length, remaining bytes)
  */
 data class HomerunBlePacket(
     /**
@@ -50,15 +50,15 @@ data class HomerunBlePacket(
     val productKey: String,
 
     /**
-     * 设备名称/标识后缀 (4 bytes Hex string)
-     * 用于生成 deviceSerial (e.g. def67890)
+     * 设备名称/标识后缀 (变长 Hex string)
+     * 用于生成 deviceSerial (e.g. def678901234...)
      */
     val deviceNameSuffix: String
 ) {
     companion object {
         fun parse(data: ByteArray?): HomerunBlePacket? {
-            // 数据长度校验：文档定义至少包含 11 字节有效数据 (不含 Length/Type 头部)
-            if (data == null || data.size < 11) return null
+            // 数据长度校验：至少包含前 7 字节 (Version to Product Key)
+            if (data == null || data.size < 7) return null
 
             // --- Byte 0: Version & Type (如 0x83) ---
             val byte0 = data[0].toInt()
@@ -81,8 +81,8 @@ data class HomerunBlePacket(
             // --- Byte 3-6: Product Key (4 bytes) ---
             val productKey = bytesToHex(data, 3, 4)
 
-            // --- Byte 7-10: Device Name/ID (4 bytes) ---
-            val deviceId = bytesToHex(data, 7, 4)
+            // --- Byte 7-N: Device Name/ID (Remaining bytes) ---
+            val deviceId = bytesToHex(data, 7, data.size - 7)
 
             return HomerunBlePacket(
                 protocolVersion = protocolVersion,
@@ -99,7 +99,7 @@ data class HomerunBlePacket(
             val sb = StringBuilder()
             for (i in start until (start + length)) {
                 if (i < bytes.size) {
-                    sb.append(String.format("%02x", bytes[i]))
+                    sb.append(String.format("%02X", bytes[i]))
                 }
             }
             return sb.toString()

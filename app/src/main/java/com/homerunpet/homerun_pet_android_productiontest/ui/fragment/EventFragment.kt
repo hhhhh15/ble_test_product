@@ -2,6 +2,7 @@ package com.homerunpet.homerun_pet_android_productiontest.ui.fragment
 
 import android.os.Bundle
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.drake.net.utils.scopeNetLife
 import com.homerunpet.homerun_pet_android_productiontest.adapter.EventAdapter
 import com.homerunpet.homerun_pet_android_productiontest.base.HMBaseFragment
 import com.homerunpet.homerun_pet_android_productiontest.databinding.ProductionStaffPhsicalModelEventBinding
@@ -21,6 +22,9 @@ class EventFragment: HMBaseFragment<ModelDataViewModel, ProductionStaffPhsicalMo
 
         mViewModel.totalData.observe(viewLifecycleOwner) { total ->
             adapter.submitList(total?.events.orEmpty())
+
+        }
+        scopeNetLife {
 
         }
     }

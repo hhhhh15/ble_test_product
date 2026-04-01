@@ -22,6 +22,7 @@ data class HMFastBleDevice(
     var provisionMode: Int? = 0,
     // Product Key 相当于 萤石的pid
     var pk: String? = "",
+    var dn: String? = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

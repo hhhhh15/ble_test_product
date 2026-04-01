@@ -7,7 +7,8 @@
     <item
         android:id="@+id/nav_mine"
         android:title="我的"/>
+
     <item
-        android:id="@+id/nav_model_display"
-        android:title="看物模型"/>
+        android:id="@+id/nav_test_report"
+        android:title="报告"/>
 </menu>

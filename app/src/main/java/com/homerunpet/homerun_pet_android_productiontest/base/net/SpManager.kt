@@ -12,6 +12,9 @@ object SpManager {
     //保存扫描获取到的sn
     private const val DEVICE_SN="sn"
 
+    //保存获取到的用户账号
+    private const val USER_ID="id"
+
     private lateinit var sp: SharedPreferences
 
     fun init(context: Context) {
@@ -34,6 +37,12 @@ object SpManager {
         get() = sp.getString(DEVICE_SN,null)
         set(value) {
             sp.edit().putString(DEVICE_SN,value).apply()
+        }
+
+    var userId:String?
+        get() = sp.getString(USER_ID,null)
+        set(value) {
+            sp.edit().putString(USER_ID,value).apply()
         }
 
     fun clear() {

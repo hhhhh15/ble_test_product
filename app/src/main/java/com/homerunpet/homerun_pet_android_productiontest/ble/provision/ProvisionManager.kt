@@ -2,15 +2,16 @@ package com.homerunpet.homerun_pet_android_productiontest.ble.provision
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.util.Log
 import com.drake.net.Get
 import com.drake.net.utils.scopeNet
 import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
+import com.homerunpet.homerun_pet_android_productiontest.base.net.SpManager
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.DeviceInfoDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.impl.HomerunCustomProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.common.ext.saveDistributionNetworkLog
+//import com.homerunpet.homerun_pet_android_productiontest.distribution_network.bean.Product
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.schedulers.Schedulers
 
@@ -32,8 +33,14 @@ class ProvisionManager private constructor(
     // 全局唯一的产品数据源
     private var globalProduct: Product? = null
 
+    // 配网随机验证码
+    private var provisionRandomCode: String = ""
+
+    //当前用户ID
+    private val userid:String= SpManager.userId.toString()
+
     // 连接开始时间
-    private var connectionStartTime: Long = 0L
+    var connectionStartTime: Long = 0L
 
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -72,22 +79,11 @@ class ProvisionManager private constructor(
 //                ProvisionProtocol.AP -> ApProvisionProtocol(context)
                 else -> null
             }
-            Log.d("Provision", "currentProtocol 创建/更新成功: $currentProtocol")
         }
 
         // 更新 Protocol 内部的 Product
         // 注意：这里我们将 globalProduct 传给协议，保证引用一致
         currentProtocol?.setProduct(product)
-
-        // ✅ 日志确认 product 是否成功传给协议
-        if (currentProtocol != null) {
-            val protocolProduct = currentProtocol?.getProduct()
-            Log.d("Provision", "Protocol 内部 Product: $protocolProduct")
-            Log.d("Provision", "Product MAC: ${protocolProduct?.hmFastBleDevice?.mac}")
-            Log.d("Provision", "Product Protocol: ${protocolProduct?.hmFastBleDevice?.protocol}")
-        } else {
-            Log.e("Provision", "currentProtocol 为 null，无法 set Product")
-        }
     }
 
     /**
@@ -175,8 +171,11 @@ class ProvisionManager private constructor(
         return Observable.create { emitter ->
             val scope = scopeNet {
                 try {
-                    val detail = Get<DeviceInfoDetailBean?>(HmApi.getDeviceProvisionStatus(deviceSerial)) {
-                        setQuery("provision_timestamp", connectionStartTime)
+                    provisionRandomCode = (100000..999999).random().toString()
+                    val detail = Get<DeviceInfoDetailBean?>(HmApi.getHrDeviceProvisionStatus(userid) ){
+                        setQuery("provision_code", provisionRandomCode)
+                        setQuery("device_name", deviceSerial)
+                        setQuery("provision_timestamp", ProvisionManager.getInstance(context).connectionStartTime)
                     }.await()
                     if (!emitter.isDisposed) {
                         if (detail != null) {

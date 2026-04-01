@@ -1,5 +1,7 @@
 package com.homerunpet.homerun_pet_android_productiontest.data
 
+import com.google.gson.annotations.SerializedName
+
 data class TestReportDetailBean (
     val device_name: String,
     val sn: String,

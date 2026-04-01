@@ -41,6 +41,32 @@ data class Property(
     val specs: Specs?,
 ):ModelData
 
+data class Property1(
+    val id: Int,
+    val identifier: String,
+    val name: String,
+    val type: String,
+    val desc: String,
+    val access_mode: String,
+    val required: Boolean,
+    val specs: Specs?,
+    //多添加一个属性存储当前的value值
+    var current_value:Any?
+)
+fun Property.toProperty1():Property1{
+    return Property1(
+        id=this.id,
+        desc=this.desc,
+        required = this.required,
+        identifier = this.identifier,
+        name = this.name,
+        type = this.type,
+        access_mode = this.access_mode,
+        specs = this.specs,
+        current_value = null
+    )
+}
+
 data class InputData(
     val desc: String? = null,
     val identifier: String? = null,
@@ -73,3 +99,11 @@ data class Service(
     val input_data: List<InputData>? = null,
     val output_data: List<OutputData>? = null,
 ): ModelData
+
+data class Events(
+    val device_name: String ?= null,
+    val event_id: String? = null,
+    val msg_time: Int?=0,
+    val msg_type: String? = null,
+    val payload: String? = null,
+)

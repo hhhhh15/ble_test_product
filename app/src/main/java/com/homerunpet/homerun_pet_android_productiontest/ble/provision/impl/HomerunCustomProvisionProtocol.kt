@@ -7,18 +7,18 @@ import com.bhm.ble.BleManager
 import com.bhm.ble.device.BleDevice
 import com.drake.net.Get
 import com.drake.net.utils.scopeNet
-//import com.homerunpet.homerun_pet_android_productiontest.common.SharedPreferencesUtils
-//import com.homerunpet.homerun_pet_android_productiontest.common.StaticDataUtils
+import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
+import com.homerunpet.homerun_pet_android_productiontest.base.net.SpManager
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.DeviceInfoDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.DevicesProductsDetailBean
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.IProvisionProtocol
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionEvent
+import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionManager
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.util.HomerunBleCipher
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.util.HomerunBleGattHelper
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.util.HomerunBlePacketUtils
 import com.homerunpet.homerun_pet_android_productiontest.common.ext.saveDistributionNetworkLog
-import com.homerunpet.homerun_pet_android_productiontest.base.net.HmApi
 //import com.homerunpet.homerun_pet_android_productiontest.distribution_network.constant.DeviceNetErrorManager
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.ObservableEmitter
@@ -75,16 +75,15 @@ class HomerunCustomProvisionProtocol(
     // 配网随机验证码
     private var provisionRandomCode: String = ""
 
+    //当前用户ID
+    private val userid:String= SpManager.userId.toString()
+
     // endregion
 
     // region ---------------- 接口实现 (IProvisionProtocol) ----------------
 
     override fun setProduct(product: Product) {
         this.currentProduct = product
-
-        Log.d("Provision", "HomerunCustomProvisionProtocol.setProduct: product=$product")
-        Log.d("Provision", "MAC=${product.hmFastBleDevice?.mac}")
-        Log.d("deviceSerial", "deviceSerial=${product.deviceSerial}和设备的${product.hmFastBleDevice?.deviceSerial}")
     }
 
     override fun getProduct(): Product? {
@@ -235,8 +234,7 @@ class HomerunCustomProvisionProtocol(
                         return@flatMap Observable.error(Throwable("设备未连接"))
                     }
 
-//                    val uid = SharedPreferencesUtils.getStringValue(StaticDataUtils.curUserId)
-                    val uid = "00000000" // 字符串占位
+                    val uid = userid
 
                     // 必须从详情中获取 Brokers
                     val detailBrokers = deviceDetail?.brokers
@@ -276,8 +274,10 @@ class HomerunCustomProvisionProtocol(
 
                     // 首次配网：直接开始监听并发送
                     val listenObservable = waitForProvisionResponse(aesKey) {
-                        sendProvisionInfo(bleDevice, ssid, password, uid, brokers, provisionRandomCode, aesKey)
-                            .subscribe(sendTrigger)
+                        if (uid != null) {
+                            sendProvisionInfo(bleDevice, ssid, password, uid, brokers, provisionRandomCode, aesKey)
+                                .subscribe(sendTrigger)
+                        }
                     }
 
                     Observable.merge(listenObservable, sendTrigger)
@@ -290,7 +290,6 @@ class HomerunCustomProvisionProtocol(
             val scope = scopeNet {
                 try {
                     val detail = Get<DevicesProductsDetailBean?>(HmApi.getProductsByKey(productKey)).await()
-                    Log.d("dddd", "fetchProductsByKey: $detail")
                     if (!emitter.isDisposed) {
                         if (detail != null) {
                             saveDistributionNetworkLog(
@@ -348,7 +347,6 @@ class HomerunCustomProvisionProtocol(
         return fetchProvisionStatus(deviceSerial)
             .flatMap { detail ->
                 saveDistributionNetworkLog(currentProduct, "查询设备在线状态", customData = "设备已上线")
-                //将detail包装成ProvisionEvent对象，所以connectfragment订阅的数据是ProvisionEvent
                 Observable.just(ProvisionEvent.Success(deviceSerial, "设备已上线", detail) as ProvisionEvent)
             }
             .doOnError { e ->
@@ -366,10 +364,12 @@ class HomerunCustomProvisionProtocol(
         return Observable.create { emitter ->
             val scope = scopeNet {
                 try {
-                    val detail = Get<DeviceInfoDetailBean?>(HmApi.getDeviceProvisionStatus(deviceSerial)) {
-                        //给当前这次 GET 请求的 URL 添加一个 query 参数
-                        setQuery("provision_code", provisionRandomCode)
-                    }.await()
+                    val detail =
+                        Get<DeviceInfoDetailBean?>(HmApi.getHrDeviceProvisionStatus(userid) ){
+                            setQuery("provision_code", provisionRandomCode)
+                            setQuery("device_name", deviceSerial)
+                            setQuery("provision_timestamp", ProvisionManager.getInstance(context).connectionStartTime)
+                        }.await()
                     if (!emitter.isDisposed) {
                         if (detail != null && detail.device_secret.isNullOrEmpty().not()) {
                             emitter.onNext(detail)
@@ -424,8 +424,7 @@ class HomerunCustomProvisionProtocol(
                 if (success) Observable.just(Unit)
                 else Observable.error(Throwable("获取设备密钥详情失败"))
             }.flatMap {
-//                val uid = SharedPreferencesUtils.getStringValue(StaticDataUtils.curUserId)
-                val  uid ="0000000"  //占位符的
+                val uid = userid
                 val secretHex = deviceDetail?.product_secret
                 if (secretHex.isNullOrEmpty()) {
                     saveDistributionNetworkLog(
@@ -442,7 +441,6 @@ class HomerunCustomProvisionProtocol(
                 verifyDeviceOwner(bleDevice, aesKey, uid)
                     .flatMap {
                         // 校验通过: 说明当前用户是设备所有者，允许后续修改网络
-                        // 校验通过: 说明当前用户是设备所有者，允许后续修改网络
                         saveDistributionNetworkLog(
                             product = currentProduct,
                             stepName = "发送配网数据",
@@ -452,7 +450,6 @@ class HomerunCustomProvisionProtocol(
                         Observable.just(ProvisionEvent.Success(mac, "归属校验通过，可进行下一步配网")) as Observable<ProvisionEvent>
                     }
                     .onErrorResumeNext { error ->
-                        // 权鉴失败 (如 UID 不匹配) 或蓝牙通信异常
                         // 权鉴失败 (如 UID 不匹配) 或蓝牙通信异常
                         saveDistributionNetworkLog(
                             product = currentProduct,
@@ -884,18 +881,18 @@ class HomerunCustomProvisionProtocol(
 //                                )
                                 "获取 IP 地址超时"
                             }
-//
-//                            errorCode.contains("MQTT_CONNECT_TIMEOUT") -> {
-//                                failureCode = "DEVICE_NOTI_MQTT_CONNECT_TIMEOUT"
+
+                            errorCode.contains("MQTT_CONNECT_TIMEOUT") -> {
+                                failureCode = "DEVICE_NOTI_MQTT_CONNECT_TIMEOUT"
 //                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.ServerIssue
-//                                "连接 MQTT 超时"
-//                            }
-//
-//                            errorCode.contains("MQTT_AUTH_FAILED") -> {
-//                                failureCode = "DEVICE_NOTI_MQTT_AUTH_FAILED"
+                                "连接 MQTT 超时"
+                            }
+
+                            errorCode.contains("MQTT_AUTH_FAILED") -> {
+                                failureCode = "DEVICE_NOTI_MQTT_AUTH_FAILED"
 //                                DeviceNetErrorManager.currentError = DeviceNetErrorManager.NetErrorType.ServerIssue
-//                                "MQTT 认证失败"
-//                            }
+                                "MQTT 认证失败"
+                            }
 
                             errorCode.contains("MQTT_PUBLISH_FAILED") -> {
                                 failureCode = "DEVICE_NOTI_MQTT_PUBLISH_FAILED"

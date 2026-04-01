@@ -2,6 +2,7 @@ package com.homerunpet.homerun_pet_android_productiontest.ui.fragment
 
 import android.os.Bundle
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.homerunpet.homerun_pet_android_productiontest.adapter.PropertyAdapter
 import com.homerunpet.homerun_pet_android_productiontest.adapter.ServiceAdapter
 import com.homerunpet.homerun_pet_android_productiontest.adapter.ServiceItemActionListener
@@ -27,5 +28,7 @@ class ServiceFragment: HMBaseFragment<ModelDataViewModel, ProductionStaffPhsical
         mViewModel.totalData.observe(viewLifecycleOwner) { total ->
             adapter.submitData(total?.services.orEmpty())
         }
+
+
     }
 }

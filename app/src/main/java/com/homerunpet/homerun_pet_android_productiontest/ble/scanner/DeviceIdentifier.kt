@@ -1,4 +1,4 @@
-package com.homerunpet.v2.ble.scanner
+package com.homerunpet.homerun_pet_android_productiontest.ble.scanner
 
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.ProvisionProtocol
 

@@ -8,7 +8,7 @@ import com.homerunpet.homerun_pet_android_productiontest.adapter.PropertyItemAct
 import com.homerunpet.homerun_pet_android_productiontest.base.HMBaseFragment
 import com.homerunpet.homerun_pet_android_productiontest.ble.model.Product
 import com.homerunpet.homerun_pet_android_productiontest.ble.provision.ProvisionManager
-import com.homerunpet.homerun_pet_android_productiontest.data.Property
+import com.homerunpet.homerun_pet_android_productiontest.data.Property1
 import com.homerunpet.homerun_pet_android_productiontest.databinding.ProductionStaffPhsicalModelAttrBinding
 import com.homerunpet.homerun_pet_android_productiontest.vm.ModelDataViewModel
 
@@ -29,13 +29,13 @@ class PropertyFragment : HMBaseFragment<ModelDataViewModel, ProductionStaffPhsic
 
         //导入到适配器中的数据，因为异步，所以就不从初始化开始导入，直接用适配器的submitList方法导入的
         adapter = PropertyAdapter(mutableListOf(), object : PropertyItemActionListener {
-            override fun onEnumItemSelected(item: Property, value: String) {
+            override fun onEnumItemSelected(item: Property1, value: String) {
                 mViewModel.issuePropertyControlRequest(item.identifier,deviceSerial,value)
             }
-            override fun onNumberValueSelected(item: Property, value: Int) {
+            override fun onNumberValueSelected(item: Property1, value: Int) {
                 mViewModel.issuePropertyControlRequest(item.identifier,deviceSerial,value)
             }
-            override fun onBoolValueChanged(item: Property, value: Boolean) {
+            override fun onBoolValueChanged(item: Property1, value: Boolean) {
                 mViewModel.issuePropertyControlRequest(item.identifier,deviceSerial,value)
             }
         })
@@ -43,10 +43,12 @@ class PropertyFragment : HMBaseFragment<ModelDataViewModel, ProductionStaffPhsic
         mBind.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         mBind.recyclerView.adapter = adapter
 
-        mViewModel.totalData.observe(viewLifecycleOwner) { total ->
+
+        mViewModel.property1Data.observe(viewLifecycleOwner){pro1Data ->
             Log.d(TAG, "initView: PropertyFragment")
-            adapter.submitList(total?.properties.orEmpty())
+            adapter.submitList(pro1Data)
         }
+
     }
 
 }
